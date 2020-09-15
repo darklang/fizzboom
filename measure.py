@@ -32,17 +32,17 @@ def TODO(str):
 
 
 def build(dir):
-  p("    Building")
+  p("  Building")
   run(dir, "build", "./build.sh", cwd=dir)
 
 
 def install(dir):
-  p("    Fetching dependencies")
+  p("  Fetching dependencies")
   run(dir, "install", "./install.sh", cwd=dir)
 
 
 def start_server(dir):
-  p("    Starting server")
+  p("  Starting server")
   file = open(logfile(dir, "server"), "w")
   handle = subprocess.Popen("./exe",
                             cwd=dir,
@@ -53,12 +53,12 @@ def start_server(dir):
 
 
 def stop_server(dir, handle):
-  p("    Stopping server")
+  p("  Stopping server")
   handle.kill()
 
 
 def measure(dir, url):
-  p("    Measuring")
+  p("  Measuring")
   run(dir, "measure", ["hey", "-n", "10000", "-c", "50", url])
 
 
@@ -84,7 +84,7 @@ valid_response = fizzbuzz()
 
 
 def test_output(dir, url):
-  p("    Testing output")
+  p("  Testing output")
   response = urllib.request.urlopen(url)
   body = response.read()
   answer = json.loads(body)
@@ -100,14 +100,14 @@ def get_url(dir):
 
 
 def benchmark(dir):
-  p("\n\n\n\n  Benchmarking " + dir)
+  p("Benchmarking " + dir)
   install(dir)
   build(dir)
   url = get_url(dir)
   handle = start_server(dir)
   try:
     if not test_output(dir, url):
-      p("    Failed test")
+      p("  Failed test")
     else:
       warmup(dir, url)
       results = measure(dir, url)
@@ -125,3 +125,5 @@ else:
     if (os.path.isdir(f) and (not f.startswith("."))
         and (os.path.exists(f + "/build.sh"))):
       benchmark(f)
+
+print("")
