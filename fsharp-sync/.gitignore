@@ -1,0 +1,8 @@
+/src/LibExecution/obj/
+/src/EditorServer/obj/
+/.ionide/
+/src/EditorServer/bin/
+/.paket/
+/src/LibExecution/bin/
+
+.fake
