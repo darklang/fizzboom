@@ -14,6 +14,18 @@ def p(str):
   print(str, flush=True)
 
 
+def logfile(dir, title):
+  return "logs/" + dir + "_" + title + ".log"
+
+
+def run(dir, title, *args, **kwargs):
+  with open(logfile(dir, title), "w") as file:
+    return subprocess.run(*args,
+                          stdout=file,
+                          stderr=subprocess.STDOUT,
+                          **kwargs)
+
+
 def TODO(str):
   p("TODO: " + str + "\n\n\n\n")
   sys.exit(-1)
@@ -21,17 +33,21 @@ def TODO(str):
 
 def build(dir):
   p("    Building")
-  subprocess.run("./build.sh", cwd=dir)
+  run(dir, "build", "./build.sh", cwd=dir)
 
 
 def install(dir):
   p("    Fetching dependencies")
-  subprocess.run("./install.sh", cwd=dir)
+  run(dir, "install", "./install.sh", cwd=dir)
 
 
 def start_server(dir):
   p("    Starting server")
-  handle = subprocess.Popen("./exe", cwd=dir)
+  file = open(logfile(dir, "server"), "w")
+  handle = subprocess.Popen("./exe",
+                            cwd=dir,
+                            stderr=subprocess.STDOUT,
+                            stdout=file)
   time.sleep(2)
   return handle
 
@@ -43,11 +59,11 @@ def stop_server(dir, handle):
 
 def measure(dir, url):
   p("    Measuring")
-  TODO("measure")
+  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", url])
 
 
 def warmup(dir, url):
-  subprocess.run(["hey", "-n", "1000", "-c", "50", url])
+  run(dir, "warmup", ["hey", "-n", "1000", "-c", "50", url])
 
 
 def fizzbuzz():
@@ -100,8 +116,12 @@ def benchmark(dir):
     stop_server(dir, handle)
 
 
-p("Starting")
-for f in os.listdir():
-  if (os.path.isdir(f) and (not f.startswith("."))
-      and (os.path.exists(f + "/build.sh"))):
-    benchmark(f)
+if sys.argv[1]:
+  p("Benchmarking just " + sys.argv[1])
+  benchmark(sys.argv[1])
+else:
+  p("Starting entire benchmark")
+  for f in os.listdir():
+    if (os.path.isdir(f) and (not f.startswith("."))
+        and (os.path.exists(f + "/build.sh"))):
+      benchmark(f)
