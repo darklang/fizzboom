@@ -1,0 +1,7 @@
+STORAGE: NONE
+RESTRICTION: || (== netcoreapp3.1) (== netstandard2.0) (== netstandard2.1)
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    FSharp.Core (4.7.2)
+    Suave (2.5.6)
+      FSharp.Core (>= 4.3.4)
