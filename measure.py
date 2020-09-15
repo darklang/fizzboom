@@ -8,6 +8,9 @@ import time
 import json
 import urllib
 import urllib.request
+import re
+import csv
+import io
 
 
 def p(str):
@@ -24,6 +27,14 @@ def run(dir, title, *args, **kwargs):
                           stdout=file,
                           stderr=subprocess.STDOUT,
                           **kwargs)
+
+
+def run_and_save(dir, title, *args, **kwargs):
+  with open(logfile(dir, title), "w") as file:
+    result = subprocess.check_output(*args, stderr=subprocess.STDOUT, **kwargs)
+    result = str(result)
+    file.write(result)
+    return result
 
 
 def TODO(str):
@@ -59,7 +70,36 @@ def stop_server(dir, handle):
 
 def measure(dir, url):
   p("  Measuring")
-  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", url])
+  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", "-o", "csv", url])
+
+
+def report(dir, url):
+  fail_count = 0
+  total_response_time = 0.0
+  results = []
+
+  with open(logfile(dir, "measure"), "r") as file:
+    # skip the header
+    iter = csv.reader(file)
+    next(iter)
+
+    for line in iter:
+      response_time = float(line[0])
+      status_code = int(line[6])
+      if status_code != 200: fail_count = fail_count + 1
+      total_response_time = response_time + total_response_time
+      results.append(response_time)
+
+  avg = total_response_time / len(results)
+  sorted_list = sorted(results)
+  print(f"    Response count:  {len(sorted_list):6d}")
+  print(f"    Failed requests: {fail_count:6d}")
+  print(f"    Avg:             {avg:6.3f}")
+  print(
+      f"    95th:            {sorted_list[int(len(sorted_list)*0.95 + 1)]:6.3f}"
+  )
+  print(f"    Fastest:         {sorted_list[0]:6.3f}")
+  print(f"    Slowest:         {sorted_list[-1]:6.3f}")
 
 
 def warmup(dir, url):
@@ -110,9 +150,9 @@ def benchmark(dir):
       p("  Failed test")
     else:
       warmup(dir, url)
-      results = measure(dir, url)
+      measure(dir, url)
+      report(dir, url)
   finally:
-    #  time.sleep(10000)
     stop_server(dir, handle)
 
 
