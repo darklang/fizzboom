@@ -41,19 +41,18 @@ def stop_server(dir, handle):
   handle.kill()
 
 
-def measure(dir, port):
+def measure(dir, url):
   p("    Measuring")
   TODO("measure")
 
 
-def warmup(dir, port):
-  p("    Warming up")
-  TODO("warm up")
+def warmup(dir, url):
+  subprocess.run(["hey", "-n", "1000", "-c", "50", url])
 
 
 def fizzbuzz():
   result = []
-  for i in range(1, 100):
+  for i in range(1, 101):
     if i % 15 == 0:
       result.append("fizzbuzz")
     elif i % 5 == 0:
@@ -68,35 +67,34 @@ def fizzbuzz():
 valid_response = fizzbuzz()
 
 
-def test_output(dir, port):
+def test_output(dir, url):
   p("    Testing output")
-  response = urllib.request.urlopen("http://localhost:" + port)
+  response = urllib.request.urlopen(url)
   body = response.read()
   answer = json.loads(body)
-  if answer != valid_response:
-    raise "Bad output"
+  return answer == valid_response
 
 
-def get_port(dir):
+def get_url(dir):
   with open(dir + "/port", "r") as myfile:
     lines = myfile.readlines()
     port = "".join(lines)
     port = port.strip()
-  return port
+  return "http://localhost:" + port
 
 
 def benchmark(dir):
   p("\n\n\n\n  Benchmarking " + dir)
   install(dir)
   build(dir)
-  port = get_port(dir)
+  url = get_url(dir)
   handle = start_server(dir)
   try:
-    if not test_output(dir, port):
+    if not test_output(dir, url):
       p("    Failed test")
     else:
-      results = warmup(dir, port)
-      results = measure(dir, port)
+      warmup(dir, url)
+      results = measure(dir, url)
   finally:
     #  time.sleep(10000)
     stop_server(dir, handle)
