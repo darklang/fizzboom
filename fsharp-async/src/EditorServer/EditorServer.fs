@@ -10,7 +10,7 @@ let runProgram () : WebPart =
   fun ( x : HttpContext) ->
   async {
     let program = Interpreter.program
-    let! result = Interpreter.runString program
+    let! result = Interpreter.runJSON program
     return! OK result x }
 
 let app =
@@ -19,9 +19,11 @@ let app =
 [<EntryPoint>]
 let main argv =
     let cts = new CancellationTokenSource()
+    let port = System.IO.File.ReadAllText("port")
 
     let conf =
         { defaultConfig with
+              bindings = [HttpBinding.createSimple HTTP "127.0.0.1" (int port)]
               cancellationToken = cts.Token }
 
     let listening, server = startWebServerAsync conf app
