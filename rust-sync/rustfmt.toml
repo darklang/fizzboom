@@ -1,0 +1,25 @@
+unstable_options = true
+indent_style = "Visual"
+blank_lines_lower_bound = 0
+blank_lines_upper_bound = 1
+brace_style = "SameLineWhere"
+fn_params_layout = "Compressed"
+max_width = 70
+merge_imports = true
+newline_style = "Unix"
+#normalize_comments = true
+normalize_doc_attributes = true
+remove_nested_perens = true
+reorder_impl_items = true
+space_after_colon = true
+space_before_colon = false
+struct_field_align_threshold = 10
+tab_spaces = 2
+trailing_comma = "Vertical"
+trailing_semicolon = false
+type_punctuation_density = "Wide"
+use_field_init_shorthand = true
+use_try_shorthand = true
+# `true` converts comments into /* style
+#wrap_comments = true
+edition = "2018"
