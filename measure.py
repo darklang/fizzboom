@@ -22,19 +22,24 @@ def logfile(dir, title):
 
 
 def run(dir, title, *args, **kwargs):
-  with open(logfile(dir, title), "w") as file:
-    return subprocess.run(*args,
-                          stdout=file,
-                          stderr=subprocess.STDOUT,
-                          **kwargs)
-
-
-def run_and_save(dir, title, *args, **kwargs):
-  with open(logfile(dir, title), "w") as file:
-    result = subprocess.check_output(*args, stderr=subprocess.STDOUT, **kwargs)
-    result = str(result)
-    file.write(result)
+  logfilename = logfile(dir, title)
+  with open(logfilename, "w") as file:
+    result = subprocess.run(*args,
+                            stdout=file,
+                            stderr=subprocess.STDOUT,
+                            **kwargs)
+    if result.returncode != 0:
+      raise Exception(
+          f"Failure running {args} - see {logfilename} for details")
     return result
+
+
+#def run_and_save(dir, title, *args, **kwargs):
+#  with open(logfile(dir, title), "w") as file:
+#    result = subprocess.check_output(*args, stderr=subprocess.STDOUT, **kwargs)
+#    result = str(result)
+#    file.write(result)
+#    return result
 
 
 def TODO(str):
@@ -125,9 +130,19 @@ valid_response = fizzbuzz()
 
 def test_output(dir, url):
   p("  Testing output")
-  response = urllib.request.urlopen(url)
-  body = response.read()
-  answer = json.loads(body)
+  response = None
+  body = None
+  answer = None
+  try:
+    response = urllib.request.urlopen(url)
+    body = response.read()
+    answer = json.loads(body)
+  except:
+    p("Failed to read test output")
+    p(f"Response {response}")
+    p(f"Body {body}")
+    p(f"Answer {answer}")
+
   return answer == valid_response
 
 
@@ -156,7 +171,7 @@ def benchmark(dir):
     stop_server(dir, handle)
 
 
-if sys.argv[1]:
+if len(sys.argv) > 1:
   p("Benchmarking just " + sys.argv[1])
   benchmark(sys.argv[1])
 else:

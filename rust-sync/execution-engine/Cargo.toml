@@ -12,3 +12,4 @@ im-rc = "15.0.0"
 itertools = "0.9.0"
 ramp = "0.5.9"
 macros = { version = "*", path = "../macros"}
+serde_json = "1.0"

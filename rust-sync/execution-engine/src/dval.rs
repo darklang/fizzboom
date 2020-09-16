@@ -27,6 +27,28 @@ impl Dval_ {
   pub fn is_special(&self) -> bool {
     matches!(self, Dval_::DSpecial(_))
   }
+
+  pub fn to_json(&self) -> serde_json::Value {
+    match self {
+      Dval_::DBool(bool) => serde_json::Value::Bool(*bool),
+      Dval_::DInt(i) => {
+        if i.bit_length() > 53 {
+          serde_json::Value::String(i.to_str_radix(10, false))
+        } else {
+          serde_json::Value::Number(serde_json::Number::from_f64(i.to_f64()).unwrap())
+        }
+      }
+      Dval_::DStr(str) => serde_json::Value::String(str.clone()),
+      Dval_::DList(l) => {
+        serde_json::Value::Array(l.iter()
+                                  .map(|dv| dv.to_json())
+                                  .collect())
+      }
+
+      Dval_::DLambda(_, _, _) => serde_json::Value::Null,
+      Dval_::DSpecial(_) => serde_json::Value::Null,
+    }
+  }
 }
 
 pub type Dval = Arc<Dval_>;
@@ -66,8 +88,10 @@ pub fn dcode_error(caller: &runtime::Caller,
                    id: runtime::ID,
                    error: errors::Error)
                    -> Dval {
-  Arc::new(Dval_::DSpecial(Special::Error(runtime::Caller::Code(caller.to_tlid(), id),
-                                         error)))
+  Arc::new(Dval_::DSpecial(Special::Error(
+        runtime::Caller::Code(caller.to_tlid(), id),
+        error,
+    )))
 }
 
 pub fn dincomplete(caller: &runtime::Caller) -> Dval {

@@ -8,7 +8,7 @@ use hyper::{
 };
 use std::{convert::Infallible, net::SocketAddr};
 
-use execution_engine::{self, dval, eval, expr::*, ivec, runtime};
+use execution_engine::{self, eval, expr::*, ivec, runtime};
 
 async fn program() -> Expr {
   elet("range",
@@ -64,13 +64,12 @@ async fn run_program(_req: Request<Body>)
     let prog = program().await;
     result = eval::run_string(&state, prog);
   }
-  let result = result.await;
   Ok(Response::new(result.into()))
 }
 
 #[tokio::main]
 async fn main() {
-  let addr = SocketAddr::from(([127, 0, 0, 1], 8088));
+  let addr = SocketAddr::from(([127, 0, 0, 1], 7000));
   // A `Service` is needed for every connection, so this
   // creates one from our `hello_world` function.
   let make_svc = make_service_fn(|_conn| async {

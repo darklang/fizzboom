@@ -14,7 +14,7 @@ pub struct ExecState {
   pub caller: Caller,
 }
 
-pub async fn run(state: &ExecState, body: Expr) -> Dval {
+pub fn run(state: &ExecState, body: Expr) -> Dval {
   let environment = Environment { functions: stdlib(), };
 
   let st = im::HashMap::new();
@@ -22,20 +22,18 @@ pub async fn run(state: &ExecState, body: Expr) -> Dval {
   eval(state, body, st, &environment)
 }
 
-pub async fn run_string(state: &ExecState, body: Expr) -> String {
-  match &*run(state, body).await {
+pub fn run_string(state: &ExecState, body: Expr) -> String {
+  match &*run(state, body) {
     dval::Dval_::DSpecial(dval::Special::Error(_, err)) => {
       format!("Error: {}", err)
     }
     result => format!("{:?}", result),
   }
 }
-/* #[macros::darkfn] */
-/* fn int_range_0(start: int, end: int) -> List<int> { */
-// *start: the first variable
-// *end: the second variable
-/*   D.list((*start..*end).map(int).collect()) */
-/* } */
+
+pub fn run_json(state: &ExecState, body: Expr) -> serde_json::Value {
+  (run(state, body)).to_json()
+}
 
 fn stdlib() -> StdlibDef {
   #[stdlibfn]
@@ -110,7 +108,7 @@ fn stdlib() -> StdlibDef {
                  list__map__0(),
                  int__toString__0(),
                  int__eq__0(),
-                 int__mod__0()];
+                 int__mod__0(),];
 
   fns.into_iter().collect()
 }
