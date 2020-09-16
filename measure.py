@@ -75,40 +75,43 @@ def stop_server(dir, handle):
 
 def measure(dir, url):
   p("  Measuring")
-  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", "-o", "csv", url])
+  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", url])
 
 
 def report(dir, url):
-  fail_count = 0
-  total_response_time = 0.0
-  results = []
+  results = {}
 
   with open(logfile(dir, "measure"), "r") as file:
-    # skip the header
-    iter = csv.reader(file)
-    next(iter)
+    for line in file.readlines():
+      try:
+        # general stats
+        split = line.strip().split(":")
+        if len(split) == 2:
+          results[split[0]] = split[1].strip()
+        else:
+          # percentiles
+          split = line.strip().split(" in ")
+          if len(split) == 2:
+            results[split[0]] = split[1].strip()
+          else:
+            # status codes
+            split = line.strip().split("]\t")
+            if len(split) == 2:
+              results[split[0][1:]] = split[1].strip()
+            else:
+              pass
+      except Exception as e:
+        print(f"Exception: {e}")
+        pass
+  if results["200"] != "10000 responses":
+    raise Exception("Failed response found")
 
-    for line in iter:
-      response_time = float(line[0])
-      status_code = int(line[6])
-      if status_code != 200: fail_count = fail_count + 1
-      total_response_time = response_time + total_response_time
-      results.append(response_time)
-
-  count = len(results)
-  avg = total_response_time / count
-  rps = 1 / avg
-  sorted_list = sorted(results)
-
-  print(f"    Response count:  {count:6d}")
-  print(f"    Failed requests: {fail_count:6d}")
-  print(f"    Avg:             {avg:6.4f}")
-  print(f"    rps:             {rps:6.4f}")
-  print(
-      f"    95th:            {sorted_list[int(len(sorted_list)*0.95 + 1)]:6.4f}"
-  )
-  print(f"    Fastest:         {sorted_list[0]:6.4f}")
-  print(f"    Slowest:         {sorted_list[-1]:6.4f}")
+  print(f"    Succeeded: {results['200']}")
+  print(f"    rps:       {results['Requests/sec']}")
+  print(f"    Avg:       {results['Average']}")
+  print(f"    95th:      {results['95%']}")
+  print(f"    Fastest:   {results['Fastest']}")
+  print(f"    Slowest:   {results['Slowest']}")
 
 
 def warmup(dir, url):
