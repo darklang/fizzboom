@@ -262,11 +262,11 @@ module StdLib =
                     | _ -> async { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
-                    [ param "a" (TInt) "a"
-                      param "b" (TInt) "b" ]
+                    [ param "a" TInt "a"
+                      param "b" TInt "b" ]
                 returnVal =
                     (retVal
-                        (TBool)
+                        TBool
                          "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
                 fn =
                     (function
