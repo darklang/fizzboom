@@ -62,14 +62,18 @@ async fn run_program(_req: Request<Body>)
   let result;
   {
     let prog = program().await;
-    result = eval::run_string(&state, prog);
+    result = eval::run_json(&state, prog);
   }
-  Ok(Response::new(result.into()))
+  Ok(Response::new(result.to_string().into()))
 }
 
 #[tokio::main]
 async fn main() {
-  let addr = SocketAddr::from(([127, 0, 0, 1], 7000));
+  let port = std::fs::read_to_string("port").unwrap()
+                                            .trim()
+                                            .parse::<u16>()
+                                            .unwrap();
+  let addr = SocketAddr::from(([127, 0, 0, 1], port));
   // A `Service` is needed for every connection, so this
   // creates one from our `hello_world` function.
   let make_svc = make_service_fn(|_conn| async {

@@ -45,7 +45,7 @@ fn stdlib() -> StdlibDef {
   fn int__range__0(start: Int, end: Int) -> Dval {
     let mut result = im::Vector::new();
     let mut i = start.clone();
-    while &i < end {
+    while &i <= end {
       result.push_back(dint(i.clone()));
       i += 1;
     }

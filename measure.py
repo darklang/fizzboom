@@ -95,19 +95,24 @@ def report(dir, url):
       total_response_time = response_time + total_response_time
       results.append(response_time)
 
-  avg = total_response_time / len(results)
+  count = len(results)
+  avg = total_response_time / count
+  rps = 1 / avg
   sorted_list = sorted(results)
-  print(f"    Response count:  {len(sorted_list):6d}")
+
+  print(f"    Response count:  {count:6d}")
   print(f"    Failed requests: {fail_count:6d}")
-  print(f"    Avg:             {avg:6.3f}")
+  print(f"    Avg:             {avg:6.4f}")
+  print(f"    rps:             {rps:6.4f}")
   print(
-      f"    95th:            {sorted_list[int(len(sorted_list)*0.95 + 1)]:6.3f}"
+      f"    95th:            {sorted_list[int(len(sorted_list)*0.95 + 1)]:6.4f}"
   )
-  print(f"    Fastest:         {sorted_list[0]:6.3f}")
-  print(f"    Slowest:         {sorted_list[-1]:6.3f}")
+  print(f"    Fastest:         {sorted_list[0]:6.4f}")
+  print(f"    Slowest:         {sorted_list[-1]:6.4f}")
 
 
 def warmup(dir, url):
+  p("  Warming up")
   run(dir, "warmup", ["hey", "-n", "1000", "-c", "50", url])
 
 
