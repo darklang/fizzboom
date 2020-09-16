@@ -62,8 +62,6 @@ type Dval =
         | DLambda _ -> JsonValue.Null
         | DSpecial _ -> JsonValue.Null
 
-
-
     static member toDList(list: List<Dval>): Dval =
         List.tryFind (fun (dv: Dval) -> dv.isSpecial) list
         |> Option.defaultValue (DList list)

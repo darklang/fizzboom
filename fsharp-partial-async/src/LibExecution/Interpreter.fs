@@ -1,5 +1,7 @@
 ﻿module LibExecution.Interpreter
 
+open FSharp.Data
+
 // fsharplint:disable FL0039
 
 module FnDesc =
@@ -44,6 +46,21 @@ type Dval =
         match this with
         | DSpecial _ -> true
         | _ -> false
+
+    member this.toJSON(): FSharp.Data.JsonValue =
+        match this with
+        | DInt i -> JsonValue.Number(decimal i)
+        | DString str -> JsonValue.String(str)
+
+        | DList l ->
+            l
+            |> List.map (fun dv -> dv.toJSON ())
+            |> List.toArray
+            |> JsonValue.Array
+
+        | DBool b -> JsonValue.Boolean b
+        | DLambda _ -> JsonValue.Null
+        | DSpecial _ -> JsonValue.Null
 
     static member toDList(list: List<Dval>): Dval =
         List.tryFind (fun (dv: Dval) -> dv.isSpecial) list
@@ -278,3 +295,8 @@ let run (e: Expr): Dval =
 let runString (e: Expr): string =
     let result = run e
     result.ToString()
+
+
+let runJSON (e: Expr): string =
+    let result = run e
+    (result.toJSON ()).ToString()
