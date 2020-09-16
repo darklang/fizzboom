@@ -180,8 +180,9 @@ def benchmark(dir):
 
 
 if len(sys.argv) > 1:
-  p("Benchmarking just " + sys.argv[1])
-  benchmark(sys.argv[1])
+  p(f"Benchmarking just {sys.argv[1:]}")
+  for f in sys.argv[1:]:
+    benchmark(f)
 else:
   p("Starting entire benchmark")
   for f in os.listdir():
