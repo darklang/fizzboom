@@ -25,7 +25,7 @@ module FnDesc =
 
 
 type Expr =
-    | EInt of int
+    | EInt of bigint
     | EString of string
     | ELet of string * Expr * Expr
     | EVariable of string
@@ -35,7 +35,7 @@ type Expr =
     | EIf of Expr * Expr * Expr
 
 type Dval =
-    | DInt of int
+    | DInt of bigint
     | DString of string
     | DSpecial of Special
     | DList of List<Dval>
@@ -49,7 +49,11 @@ type Dval =
 
     member this.toJSON(): FSharp.Data.JsonValue =
         match this with
-        | DInt i -> JsonValue.Number(decimal i)
+        | DInt i ->
+            try
+                JsonValue.Number(decimal i)
+            with :? System.OverflowException -> JsonValue.String(i.ToString())
+
         | DString str -> JsonValue.String(str)
 
         | DList l ->
@@ -133,7 +137,7 @@ let binOp (arg1: Expr) (module_: string) (function_: string) (version: int) (arg
 let program =
     ELet
         ("range",
-         (sfn "Int" "range" 0 [ EInt 1; EInt 100 ]),
+         (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
          (sfn
              "List"
               "map"
@@ -142,13 +146,18 @@ let program =
                 (ELambda
                     ([ "i" ],
                      EIf
-                         ((binOp (binOp (EVariable "i") "Int" "%" 0 (EInt 15)) "Int" "==" 0 (EInt 0)),
+                         ((binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15))) "Int" "==" 0 (EInt(bigint 0))),
                           EString "fizzbuzz",
                           EIf
-                              (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt 5)) "Int" "==" 0 (EInt 0),
+                              (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5))) "Int" "==" 0 (EInt(bigint 0)),
                                EString "buzz",
                                EIf
-                                   (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt 3)) "Int" "==" 0 (EInt 0),
+                                   (binOp
+                                       (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3)))
+                                        "Int"
+                                        "=="
+                                        0
+                                        (EInt(bigint 0)),
                                     EString "fizz",
                                     sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
 
@@ -234,7 +243,7 @@ module StdLib =
                     | env, [ DInt a; DInt b ] ->
                         try
                             Ok(DInt(a % b))
-                        with _ -> Ok(DInt 0)
+                        with _ -> Ok(DInt(bigint 0))
                     | _ -> Error()) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
