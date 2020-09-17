@@ -1,289 +1,336 @@
 open Base
 
 module FnDesc = struct
+  module T = struct
     type t =
-        { owner: string;
-          package: string;
-          module_: string;
-          function_: string;
-          version: int }
+      { owner : string
+      ; package : string
+      ; module_ : string
+      ; function_ : string
+      ; version : int }
+    [@@deriving sexp, compare]
+  end
 
-    let fnDesc (owner: string) (package: string) (module_: string) (function_: string) (version: int): t =
-        { owner = owner;
-          package = package;
-          module_ = module_;
-          function_ = function_;
-          version = version }
+  include T
+  include Comparator.Make (T)
+
+  let fnDesc
+      (owner : string)
+      (package : string)
+      (module_ : string)
+      (function_ : string)
+      (version : int) : t =
+    {owner; package; module_; function_; version}
 
 
-    let stdFnDesc (module_: string) (function_: string) (version: int): t =
-        fnDesc "dark" "stdlib" module_ function_ version
+  let stdFnDesc (module_ : string) (function_ : string) (version : int) : t =
+    fnDesc "dark" "stdlib" module_ function_ version
 end
 
-
 type expr =
-    | EInt of int
-    | EString of string
-    | ELet of string * expr * expr
-    | EVariable of string
-    | EFnCall of FnDesc.t * expr list
-    | EBinOp of   expr * FnDesc.t * expr
-    | ELambda of string list * expr
-    | EIf of expr * expr * expr
+  | EInt of int
+  | EString of string
+  | ELet of string * expr * expr
+  | EVariable of string
+  | EFnCall of FnDesc.t * expr list
+  | EBinOp of expr * FnDesc.t * expr
+  | ELambda of string list * expr
+  | EIf of expr * expr * expr
 
 type dval =
-    | DInt of int
-    | DString of string
-    | DSpecial of special
-    | DList of dval list
-    | DBool of bool
-    | DLambda of symtable * string list * expr
+  | DInt of int
+  | DString of string
+  | DSpecial of special
+  | DList of dval list
+  | DBool of bool
+  | DLambda of symtable * string list * expr
 
-module Dval = struct
-  type t = dval
-
-
-  let is_special (dv : t): bool =
-        match dv with
-        | DSpecial _ -> true
-        | _ -> false
-
-    let to_json (dv : t) : Yojson.Safe.t =
-        match dv with
-        | DInt i ->
-            try
-                JsonValue.Number(decimal i)
-            with System.OverflowException -> JsonValue.String(i.ToString())
-
-        | DString str -> JsonValue.String(str)
-
-        | DList l ->
-            l
-            |> List.map (fun dv -> dv.toJSON ())
-            |> List.toArray
-            |> JsonValue.Array
-
-        | DBool b -> JsonValue.Boolean b
-        | DLambda _ -> JsonValue.Null
-        | DSpecial _ -> JsonValue.Null
-
-    let toDList (list: dval list) : dval =
-        List.tryFind (fun (dv: Dval) -> dv.isSpecial) list
-        |> Option.defaultValue (DList list)
-
-and symtable = Map<string, Dval>
+and symtable = (string, dval, String.comparator_witness) Map.t
 
 and param =
-    { name: string
-      tipe: DType
-      doc: string }
+  { name : string
+  ; tipe : typ
+  ; doc : string }
 
 (* Runtime errors can be things that happen relatively commonly (such as calling
    a function with an incorrect type), or things that aren't supposed to happen
    but technically can (such as accessing a variable which doesn't exist)
 *)
-and RuntimeError =
-    | NotAFunction of FnDesc.T
-    | CondWithNonBool of Dval
-    | FnCalledWithWrongTypes of FnDesc.T * List<Dval> * List<Param>
-    | UndefinedVariable of string
+and runtimeError =
+  | NotAFunction of FnDesc.t
+  | CondWithNonBool of dval
+  | FnCalledWithWrongTypes of FnDesc.t * dval list * param list
+  | UndefinedVariable of string
+
+and special = DError of runtimeError
+
+and typ =
+  | TString
+  | TInt
+  | TBool
+  | TList of typ
+  (* A named variable, eg `a` in `List<a>` *)
+  | TVariable of string
+  | TFn of typ list * typ
+
+module Dval = struct
+  type t = dval
+
+  let is_special (dv : t) : bool =
+    match dv with DSpecial _ -> true | _ -> false
 
 
-and Special = DError of RuntimeError
-
-and DType =
-    | TString
-    | TInt
-    | TBool
-    | TList of DType
-    (* A named variable, eg `a` in `List<a>` *)
-    | TVariable of string
-    | TFn of List<DType> * DType
-
-let err (e: RuntimeError) = DSpecial(DError(e))
-
-
-module Symtable =
-    type T = Symtable
-    let empty: T = Map []
-
-    let get (st: T) (name: string): Dval =
-        st.TryFind(name)
-        |> Option.defaultValue (err (UndefinedVariable name))
+  let rec to_json (dv : t) : Yojson.Safe.t =
+    match dv with
+    | DInt i ->
+        `Intlit (i |> Int.to_string)
+    | DString str ->
+        `String str
+    | DList l ->
+        `List (l |> List.map ~f:to_json)
+    | DBool b ->
+        `Bool b
+    | DLambda _ ->
+        `Null
+    | DSpecial _ ->
+        `Null
 
 
-module Environment =
-    type RetVal = { tipe: DType; doc: string }
+  let toDList (list : t list) : dval =
+    List.find ~f:is_special list |> Option.value ~default:(DList list)
+end
 
-    type BuiltInFn =
-        { name: FnDesc.T
-          parameters: List<Param>
-          returnVal: RetVal
-          fn: (T * List<Dval>) -> Result<Dval, unit> }
+let err (e : runtimeError) = DSpecial (DError e)
 
-    and T = { functions: Map<FnDesc.T, BuiltInFn> }
+module Symtable = struct
+  type t = symtable
 
-    let envWith (functions: Map<FnDesc.T, BuiltInFn>): T = { functions = functions }
+  let empty : t = Map.empty (module String)
 
-let param (name: string) (tipe: DType) (doc: string): Param = { name = name; tipe = tipe; doc = doc }
-let retVal (tipe: DType) (doc: string): Environment.RetVal = { tipe = tipe; doc = doc }
+  let get (st : t) (name : string) : dval =
+    Map.find st name |> Option.value ~default:(err (UndefinedVariable name))
+end
+
+module Environment = struct
+  type ret_val =
+    { tipe : typ
+    ; doc : string }
+
+  and built_in_fn =
+    { name : FnDesc.t
+    ; parameters : param list
+    ; return_val : ret_val
+    ; fn : t * dval list -> (dval, unit) Result.t }
+
+  and fn_map = (FnDesc.t, built_in_fn, FnDesc.comparator_witness) Map.t
+
+  and t = {functions : fn_map}
+
+  let envWith (functions : fn_map) : t = {functions}
+end
+
+let param (name : string) (tipe : typ) (doc : string) : param = {name; tipe; doc}
+
+let ret_val (tipe : typ) (doc : string) : Environment.ret_val = {tipe; doc}
+
+let sfn
+    (module_ : string) (function_ : string) (version : int) (args : expr list) :
+    expr =
+  EFnCall (FnDesc.fnDesc "dark" "stdlib" module_ function_ version, args)
 
 
-let sfn (module_: string) (function_: string) (version: int) (args: List<Expr>): Expr =
-    EFnCall(FnDesc.fnDesc "dark" "stdlib" module_ function_ version, args)
+let binOp
+    (arg1 : expr)
+    (module_ : string)
+    (function_ : string)
+    (version : int)
+    (arg2 : expr) : expr =
+  EBinOp (arg1, FnDesc.fnDesc "dark" "stdlib" module_ function_ version, arg2)
 
-let binOp (arg1: Expr) (module_: string) (function_: string) (version: int) (arg2: Expr): Expr =
-    EBinOp(arg1, FnDesc.fnDesc "dark" "stdlib" module_ function_ version, arg2)
+
+let var str = EVariable str
+
+let int i = EInt i
+
+let str s = EString s
 
 let program =
-    ELet
-        ("range",
-         (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
-         (sfn
-             "List"
-              "map"
-              0
-              [ EVariable "range"
-                (ELambda
-                    ([ "i" ],
-                     EIf
-                         ((binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15))) "Int" "==" 0 (EInt(bigint 0))),
-                          EString "fizzbuzz",
-                          EIf
-                              (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5))) "Int" "==" 0 (EInt(bigint 0)),
-                               EString "buzz",
-                               EIf
-                                   (binOp
-                                       (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3)))
-                                        "Int"
-                                        "=="
-                                        0
-                                        (EInt(bigint 0)),
-                                    EString "fizz",
-                                    sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
+  ELet
+    ( "range"
+    , sfn "Int" "range" 0 [int 1; int 100]
+    , sfn
+        "List"
+        "map"
+        0
+        [ var "range"
+        ; ELambda
+            ( ["i"]
+            , EIf
+                ( binOp
+                    (binOp (var "i") "Int" "%" 0 (int 15))
+                    "Int"
+                    "=="
+                    0
+                    (int 0)
+                , str "fizzbuzz"
+                , EIf
+                    ( binOp
+                        (binOp (var "i") "Int" "%" 0 (int 5))
+                        "Int"
+                        "=="
+                        0
+                        (int 0)
+                    , EString "buzz"
+                    , EIf
+                        ( binOp
+                            (binOp (var "i") "Int" "%" 0 (int 3))
+                            "Int"
+                            "=="
+                            0
+                            (int 0)
+                        , str "fizz"
+                        , sfn "Int" "toString" 0 [var "i"] ) ) ) ) ] )
 
 
-
-let rec eval (env: Environment.T) (st: Symtable.T) (e: Expr): Dval =
-    match e with
-    | EInt i -> DInt i
-    | EString s -> DString s
-    | ELet (lhs, rhs, body) ->
-        let rhs = eval env st rhs
-        let st = st.Add(lhs, rhs)
-        let result = (eval env st body)
-        result
-    | EFnCall (desc, args) ->
-        (match env.functions.TryFind desc with
-         | Some fn ->
-             let args = (List.map (eval env st) args)
-             call_fn env fn (Seq.toList args)
-         | None -> (err (NotAFunction desc)))
-    | EBinOp (arg1, desc, arg2) ->
-        (match env.functions.TryFind desc with
-         | Some fn ->
-             let arg1 = eval env st arg1
-             let arg2 = eval env st arg2
-             call_fn env fn [ arg1; arg2 ]
-         | None -> (err (NotAFunction desc)))
-    | ELambda (vars, expr) -> DLambda(st, vars, expr)
-    | EVariable (name) -> Symtable.get st name
-    | EIf (cond, thenbody, elsebody) ->
-        let cond = eval env st cond
-        match cond with
-        | DBool (true) -> eval env st thenbody
-        | DBool (false) -> eval env st elsebody
-        | _ -> err (CondWithNonBool cond)
-
-
-and call_fn (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<Dval>): Dval =
-    match List.tryFind (fun (dv: Dval) -> dv.isSpecial) args with
-    | Some special -> special
+let rec eval (env : Environment.t) (st : Symtable.t) (e : expr) : dval =
+  match e with
+  | EInt i ->
+      DInt i
+  | EString s ->
+      DString s
+  | ELet (lhs, rhs, body) ->
+      let rhs = eval env st rhs in
+      let st = Map.set st lhs rhs in
+      eval env st body
+  | EFnCall (desc, args) ->
+    ( match Map.find env.functions desc with
+    | Some fn ->
+        let args = List.map ~f:(eval env st) args in
+        call_fn env fn args
     | None ->
-        let result = fn.fn (env, args)
-        match result with
-        | Ok result -> result
-        | Error () -> err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
+        err (NotAFunction desc) )
+  | EBinOp (arg1, desc, arg2) ->
+    ( match Map.find env.functions desc with
+    | Some fn ->
+        let arg1 = eval env st arg1 in
+        let arg2 = eval env st arg2 in
+        call_fn env fn [arg1; arg2]
+    | None ->
+        err (NotAFunction desc) )
+  | ELambda (vars, expr) ->
+      DLambda (st, vars, expr)
+  | EVariable name ->
+      Symtable.get st name
+  | EIf (cond, thenbody, elsebody) ->
+      let cond = eval env st cond in
 
-module StdLib =
-    let functions (): Map<FnDesc.T, Environment.BuiltInFn> =
-        let fns: List<Environment.BuiltInFn> =
-            [ { name = (FnDesc.stdFnDesc "Int" "range" 0)
-                parameters =
-                    [ param "list" (TList(TVariable("a"))) "The list to be operated on"
-                      param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
-                returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
-                fn =
-                    (function
-                    | _, [ DInt lower; DInt upper ] -> List.map DInt [ lower .. upper ] |> DList |> Ok
-                    | _ -> Error()) }
-              { name = (FnDesc.stdFnDesc "List" "map" 0)
-                parameters =
-                    [ param "list" (TList(TVariable("a"))) "The list to be operated on"
-                      param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
-                returnVal =
-                    (retVal
-                        (TList(TVariable("b")))
-                         "A list created by the elements of `list` with `fn` called on each of them in order")
-                fn =
-                    (function
-                    | env, [ DList l; DLambda (st, [ var ], body) ] ->
-                        let result =
-                            (List.map (fun dv -> let st = st.Add(var, dv) in eval env st body) l)
-
-                        result |> Seq.toList |> Dval.toDList |> Ok
-
-                    | _ -> Error()) }
-              { name = (FnDesc.stdFnDesc "Int" "%" 0)
-                parameters =
-                    [ param "a" TInt "Numerator"
-                      param "b" TInt "Denominator" ]
-                returnVal = (retVal TInt "Returns the modulus of a / b")
-                fn =
-                    (function
-                    | env, [ DInt a; DInt b ] ->
-                        try
-                            Ok(DInt(a % b))
-                        with _ -> Ok(DInt(bigint 0))
-                    | _ -> Error()) }
-              { name = (FnDesc.stdFnDesc "Int" "==" 0)
-                parameters =
-                    [ param "a" TInt "a"
-                      param "b" TInt "b" ]
-                returnVal =
-                    (retVal
-                        TBool
-                         "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
-                fn =
-                    (function
-                    | env, [ DInt a; DInt b ] -> Ok(DBool(a = b))
-                    | _ -> Error()) }
-              { name = (FnDesc.stdFnDesc "Int" "toString" 0)
-                parameters = [ param "a" TInt "value" ]
-                returnVal = (retVal TString "Stringified version of a")
-                fn =
-                    (function
-                    | env, [ DInt a ] -> Ok(DString(a.ToString()))
-
-                    | _ -> Error()) } ]
-
-        fns |> List.map (fun fn -> (fn.name, fn)) |> Map
+      ( match cond with
+      | DBool true ->
+          eval env st thenbody
+      | DBool false ->
+          eval env st elsebody
+      | _ ->
+          err (CondWithNonBool cond) )
 
 
+and call_fn
+    (env : Environment.t) (fn : Environment.built_in_fn) (args : dval list) :
+    dval =
+  match List.find ~f:Dval.is_special args with
+  | Some special ->
+      special
+  | None ->
+      let result = fn.fn (env, args) in
+      ( match result with
+      | Ok result ->
+          result
+      | Error () ->
+          err (FnCalledWithWrongTypes (fn.name, args, fn.parameters)) )
 
 
-let run (e: Expr): Dval =
-    let env =
-        Environment.envWith (StdLib.functions ())
+module StdLib = struct
+  let functions () : Environment.fn_map =
+    let fns : Environment.built_in_fn list =
+      [ { name = FnDesc.stdFnDesc "Int" "range" 0
+        ; parameters =
+            [ param "list" (TList (TVariable "a")) "The list to be operated on"
+            ; param
+                "fn"
+                (TFn ([TVariable "a"], TVariable "b"))
+                "Function to be called on each member" ]
+        ; return_val =
+            ret_val
+              (TList TInt)
+              "List of ints between lowerBound and upperBound"
+        ; fn =
+            (function
+            | _, [DInt lower; DInt upper] ->
+                List.range lower (upper + 1)
+                |> List.map ~f:(fun i -> DInt i)
+                |> DList
+                |> Ok
+            | _ ->
+                Error ()) }
+      ; { name = FnDesc.stdFnDesc "List" "map" 0
+        ; parameters =
+            [ param "list" (TList (TVariable "a")) "The list to be operated on"
+            ; param
+                "fn"
+                (TFn ([TVariable "a"], TVariable "b"))
+                "Function to be called on each member" ]
+        ; return_val =
+            ret_val
+              (TList (TVariable "b"))
+              "A list created by the elements of `list` with `fn` called on each of them in order"
+        ; fn =
+            (function
+            | env, [DList l; DLambda (st, [var], body)] ->
+                let result =
+                  l
+                  |> List.map ~f:(fun dv ->
+                         let st = Map.set st var dv in
+                         eval env st body)
+                in
 
-    eval env Symtable.empty e
+                result |> Dval.toDList |> Ok
+            | _ ->
+                Error ()) }
+      ; { name = FnDesc.stdFnDesc "Int" "%" 0
+        ; parameters = [param "a" TInt "Numerator"; param "b" TInt "Denominator"]
+        ; return_val = ret_val TInt "Returns the modulus of a / b"
+        ; fn =
+            (function
+            | env, [DInt a; DInt b] ->
+              (try Ok (DInt (a % b)) with _ -> Ok (DInt 0))
+            | _ ->
+                Error ()) }
+      ; { name = FnDesc.stdFnDesc "Int" "==" 0
+        ; parameters = [param "a" TInt "a"; param "b" TInt "b"]
+        ; return_val =
+            ret_val
+              TBool
+              "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise"
+        ; fn =
+            (function
+            | env, [DInt a; DInt b] -> Ok (DBool (a = b)) | _ -> Error ()) }
+      ; { name = FnDesc.stdFnDesc "Int" "toString" 0
+        ; parameters = [param "a" TInt "value"]
+        ; return_val = ret_val TString "Stringified version of a"
+        ; fn =
+            (function
+            | env, [DInt a] -> Ok (DString (Int.to_string a)) | _ -> Error ())
+        } ]
+    in
+
+    fns
+    |> List.map ~f:(fun fn -> (fn.name, fn))
+    |> Map.of_alist_exn (module FnDesc)
+end
+
+let run (e : expr) : dval =
+  let env = Environment.envWith (StdLib.functions ()) in
+  eval env Symtable.empty e
 
 
-
-let runString (e: Expr): string =
-
-    (run e).ToString()
-
-
-
-let runJSON (e: Expr): string = ((run e).toJSON()).ToString()
+let run_json (e : expr) : string =
+  run e |> Dval.to_json |> Yojson.Safe.to_string ~std:true
