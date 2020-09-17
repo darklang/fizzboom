@@ -28,7 +28,7 @@ module FnDesc = struct
 end
 
 type expr =
-  | EInt of int
+  | EInt of Z.t
   | EString of string
   | ELet of string * expr * expr
   | EVariable of string
@@ -38,7 +38,7 @@ type expr =
   | EIf of expr * expr * expr
 
 type dval =
-  | DInt of int
+  | DInt of Z.t
   | DString of string
   | DSpecial of special
   | DList of dval list
@@ -83,7 +83,7 @@ module Dval = struct
   let rec to_json (dv : t) : Yojson.Safe.t =
     match dv with
     | DInt i ->
-        `Intlit (i |> Int.to_string)
+        `Intlit (i |> Z.to_string)
     | DString str ->
         `String str
     | DList l ->
@@ -150,7 +150,7 @@ let binOp
 
 let var str = EVariable str
 
-let int i = EInt i
+let int (i : int) = EInt (Z.of_int i)
 
 let str s = EString s
 
@@ -265,7 +265,13 @@ module StdLib = struct
         ; fn =
             (function
             | _, [DInt lower; DInt upper] ->
-                List.range lower (upper + 1)
+                List.range'
+                  ~compare:Z.compare
+                  ~stride:Z.succ
+                  ~start:`inclusive
+                  ~stop:`inclusive
+                  lower
+                  upper
                 |> List.map ~f:(fun i -> DInt i)
                 |> DList
                 |> Ok
@@ -301,7 +307,7 @@ module StdLib = struct
         ; fn =
             (function
             | env, [DInt a; DInt b] ->
-              (try Ok (DInt (a % b)) with _ -> Ok (DInt 0))
+              (try Ok (DInt (Z.erem a b)) with _ -> Ok (DInt Z.zero))
             | _ ->
                 Error ()) }
       ; { name = FnDesc.stdFnDesc "Int" "==" 0
@@ -312,14 +318,15 @@ module StdLib = struct
               "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise"
         ; fn =
             (function
-            | env, [DInt a; DInt b] -> Ok (DBool (a = b)) | _ -> Error ()) }
+            | env, [DInt a; DInt b] -> Ok (DBool (Z.equal a b)) | _ -> Error ())
+        }
       ; { name = FnDesc.stdFnDesc "Int" "toString" 0
         ; parameters = [param "a" TInt "value"]
         ; return_val = ret_val TString "Stringified version of a"
         ; fn =
             (function
-            | env, [DInt a] -> Ok (DString (Int.to_string a)) | _ -> Error ())
-        } ]
+            | env, [DInt a] -> Ok (DString (Z.to_string a)) | _ -> Error ()) }
+      ]
     in
 
     fns

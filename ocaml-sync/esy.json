@@ -17,7 +17,8 @@
     "@opam/httpaf-lwt-unix": "0.6.6",
     "@opam/stdio": "v0.14.0",
     "@opam/yojson": "1.7.0",
-    "@opam/ppx_jane": "v0.14.0"
+    "@opam/ppx_jane": "v0.14.0",
+    "@opam/zarith": "1.10"
   },
   "devDependencies": {
     "@opam/merlin": "*"
