@@ -58,4 +58,5 @@ let main port =
   Lwt_main.run forever
 
 
-let () = main 8081
+let () =
+  "port" |> Stdio.In_channel.read_all |> String.strip |> Int.of_string |> main
