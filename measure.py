@@ -194,7 +194,14 @@ def get_host(dir):
   return "http://localhost:" + port
 
 
+def is_broken(dir):
+  return (os.path.exists(dir + "/BROKEN"))
+
+
 def benchmark(dir):
+  if is_broken(dir):
+    p("Skipping broken benchmark: " + dir)
+    return
   p("Benchmarking " + dir)
   install(dir)
   build(dir)

@@ -37,6 +37,18 @@ variations (different web servers, new languages/frameworks, etc). Some rules:
   definitely going to reject things that don't support how we'd actually want
   to write Dark's backend. New rules will come as this happens.
 
+## Overview of codebase
+
+The benchmark is implemented in [measure.py](measure.py).
+
+Each benchmark candidate is in its own directory, which has some known files:
+
+- `./install.sh` - installs dependencies
+- `./build.sh` - builds the server. This should use release configuration
+- `./exe` - a symlink to the compiled executable
+- `PORT` - the port to use to connect to the server
+- `BROKEN` - if this file exists, don't use that in the benchmark
+
 ## Code of Conduct
 
 Dark's community is held to the Dark [Code of Conduct](./CODE-OF-CONDUCT.md).
