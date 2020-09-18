@@ -1,23 +1,29 @@
-open Lwt.Infix
-open Base
 open Httpaf
 open Httpaf_lwt_unix
 
-let program = Lib.Execution_engine.program
+let fizzbuzz = Lib.Execution_engine.fizzbuzz
+
+let fizzboom = Lib.Execution_engine.fizzboom
 
 module Server = struct
   let get =
-    let text = Lib.Execution_engine.run_json program in
-    let headers =
-      Headers.of_list [("content-length", Int.to_string (String.length text))]
-    in
     let handler reqd =
       let {Request.target; _} = Reqd.request reqd in
+      let handle program =
+        let text = Lib.Execution_engine.run_json program in
+        let headers =
+          Headers.of_list
+            [("content-length", Int.to_string (String.length text))]
+        in
+        Reqd.respond_with_string reqd (Response.create ~headers `OK) text
+      in
       let request_body = Reqd.request_body reqd in
       Body.close_reader request_body ;
       match target with
-      | "/" ->
-          Reqd.respond_with_string reqd (Response.create ~headers `OK) text
+      | "/fizzbuzz" ->
+          handle fizzbuzz
+      | "/fizzboom" ->
+          handle fizzboom
       | _ ->
           Reqd.respond_with_string
             reqd
@@ -31,7 +37,7 @@ module Server = struct
     let response_body = start_response Headers.empty in
     ( match error with
     | `Exn exn ->
-        Body.write_string response_body (Exn.to_string exn) ;
+        Body.write_string response_body (Base.Exn.to_string exn) ;
         Body.write_string response_body "\n"
     | #Status.standard as error ->
         Body.write_string response_body (Status.default_reason_phrase error) ) ;
@@ -43,6 +49,7 @@ let request_handler (_ : Unix.sockaddr) = Server.get
 let error_handler (_ : Unix.sockaddr) = Server.error_handler
 
 let main port =
+  let open Lwt.Infix in
   let listen_address =
     let open Unix in
     ADDR_INET (inet_addr_loopback, port)
@@ -59,4 +66,8 @@ let main port =
 
 
 let () =
-  "port" |> Stdio.In_channel.read_all |> String.strip |> Int.of_string |> main
+  "port"
+  |> Stdio.In_channel.read_all
+  |> Base.String.strip
+  |> Base.Int.of_string
+  |> main

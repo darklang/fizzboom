@@ -1,4 +1,5 @@
 open Base
+module C = Curl
 
 module FnDesc = struct
   module T = struct
@@ -154,7 +155,7 @@ let int (i : int) = EInt (Z.of_int i)
 
 let str s = EString s
 
-let program =
+let fizzbuzz : expr =
   ELet
     ( "range"
     , sfn "Int" "range" 0 [int 1; int 100]
@@ -173,6 +174,44 @@ let program =
                     0
                     (int 0)
                 , str "fizzbuzz"
+                , EIf
+                    ( binOp
+                        (binOp (var "i") "Int" "%" 0 (int 5))
+                        "Int"
+                        "=="
+                        0
+                        (int 0)
+                    , EString "buzz"
+                    , EIf
+                        ( binOp
+                            (binOp (var "i") "Int" "%" 0 (int 3))
+                            "Int"
+                            "=="
+                            0
+                            (int 0)
+                        , str "fizz"
+                        , sfn "Int" "toString" 0 [var "i"] ) ) ) ) ] )
+
+
+let fizzboom : expr =
+  ELet
+    ( "range"
+    , sfn "Int" "range" 0 [int 1; int 100]
+    , sfn
+        "List"
+        "map"
+        0
+        [ var "range"
+        ; ELambda
+            ( ["i"]
+            , EIf
+                ( binOp
+                    (binOp (var "i") "Int" "%" 0 (int 15))
+                    "Int"
+                    "=="
+                    0
+                    (int 0)
+                , sfn "HttpClient" "get" 0 [str "http://httpbin.org/delay/1"]
                 , EIf
                     ( binOp
                         (binOp (var "i") "Int" "%" 0 (int 5))
@@ -326,7 +365,55 @@ module StdLib = struct
         ; fn =
             (function
             | env, [DInt a] -> Ok (DString (Z.to_string a)) | _ -> Error ()) }
-      ]
+      ; { name = FnDesc.stdFnDesc "HttpClient" "get" 0
+        ; parameters = [param "url" TString "The URL to be fetched"]
+        ; return_val = ret_val TString "Fetch the body of the page at the URL"
+        ; fn =
+            (function
+            | env, [DString url] ->
+              ( try
+                  let errorbuf = ref "" in
+                  let responsebuf = Buffer.create 16384 in
+                  let responsefn str : int =
+                    Buffer.add_string responsebuf str ;
+                    String.length str
+                  in
+                  let c = C.init () in
+                  C.set_url c url ;
+                  C.set_verbose c false ;
+                  C.set_errorbuffer c errorbuf ;
+                  C.set_followlocation c true ;
+                  C.set_failonerror c false ;
+                  C.set_writefunction c responsefn ;
+                  C.setopt c (Curl.CURLOPT_TIMEOUT 30)
+                  (* timeout is infinite by default *) ;
+                  (* This tells CURL to send an Accept-Encoding header including all
+        * of the encodings it supports *and* tells it to automagically decode
+        * responses in those encodings. This works even if someone manually specifies
+        * the encoding in the header, as libcurl will still appropriately decode it
+        *
+        * https://curl.haxx.se/libcurl/c/CURLOPT_ACCEPT_ENCODING.html
+        * *)
+                  C.set_encoding c C.CURL_ENCODING_ANY ;
+                  (* Don't let users curl to e.g. file://; just HTTP and HTTPs. *)
+                  C.set_protocols c [C.CURLPROTO_HTTP; C.CURLPROTO_HTTPS] ;
+                  (* Seems like redirects can be used to get around the above list... *)
+                  C.set_redirprotocols c [C.CURLPROTO_HTTP; C.CURLPROTO_HTTPS] ;
+                  (* Actually do the request *)
+                  C.perform c ;
+                  (* If we get a redirect back, then we may see the content-type
+        * header twice. Fortunately, because we push headers to the front
+        * above, and take the first in charset, we get the right
+        * answer. Whew. To do this correctly, we'd have to implement our
+        * own follow logic which would clear the header ref, which seems
+        * straightforward in theory but likely not practice.
+        * Alternatively, we could clear the headers ref when we receive a
+        * new `ok` header. *)
+                  C.cleanup c ;
+                  Ok (DString (Buffer.contents responsebuf))
+                with Curl.CurlException (curl_code, code, s) -> Error () )
+            | _ ->
+                Error ()) } ]
     in
 
     fns
