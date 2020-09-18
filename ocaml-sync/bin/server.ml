@@ -6,31 +6,27 @@ let fizzbuzz = Lib.Execution_engine.fizzbuzz
 let fizzboom = Lib.Execution_engine.fizzboom
 
 module Server = struct
-  let get =
-    let handler reqd =
-      let {Request.target; _} = Reqd.request reqd in
-      let handle program =
-        let text = Lib.Execution_engine.run_json program in
-        let headers =
-          Headers.of_list
-            [("content-length", Int.to_string (String.length text))]
-        in
-        Reqd.respond_with_string reqd (Response.create ~headers `OK) text
+  let get reqd =
+    let {Request.target; _} = Reqd.request reqd in
+    let handle program =
+      let text = Lib.Execution_engine.run_json program in
+      let headers =
+        Headers.of_list [("content-length", Int.to_string (String.length text))]
       in
-      let request_body = Reqd.request_body reqd in
-      Body.close_reader request_body ;
-      match target with
-      | "/fizzbuzz" ->
-          handle fizzbuzz
-      | "/fizzboom" ->
-          handle fizzboom
-      | _ ->
-          Reqd.respond_with_string
-            reqd
-            (Response.create `Not_found)
-            "Route not found"
+      Reqd.respond_with_string reqd (Response.create ~headers `OK) text
     in
-    handler
+    let request_body = Reqd.request_body reqd in
+    Body.close_reader request_body ;
+    match target with
+    | "/fizzbuzz" ->
+        handle fizzbuzz
+    | "/fizzboom" ->
+        handle fizzboom
+    | _ ->
+        Reqd.respond_with_string
+          reqd
+          (Response.create `Not_found)
+          "Route not found"
 
 
   let error_handler ?request:_ error start_response =
