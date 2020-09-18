@@ -68,14 +68,33 @@ def start_server(dir):
   return handle
 
 
-def stop_server(dir, handle):
-  p("  Stopping server")
+def start_httpbin(dir):
+  p("  Starting httpbin")
+  file = open(logfile(dir, "httpbin"), "w")
+  handle = subprocess.Popen(
+      ["docker", "run", "-p", "80:80", "kennethreitz/httpbin"],
+      cwd=dir,
+      stderr=subprocess.STDOUT,
+      stdout=file)
+  time.sleep(2)
+  return handle
+
+
+def stop_handle(name, dir, handle):
+  p(f"  Stopping {name}")
   handle.kill()
 
 
 def measure(dir, url):
   p("  Measuring")
-  run(dir, "measure", ["wrk", "-c", "100", "-t", "2", "-d", "5", url])
+  run(dir, "measure",
+      ["wrk", "-c", "100", "-t", "2", "-d", "8", "--timeout", "20", url])
+
+
+def measure_gently(dir, url):
+  p("  Measuring gently")
+  run(dir, "measure_gently",
+      ["wrk", "-c", "10", "-t", "2", "-d", "10", "--timeout", "20", url])
 
 
 def report(dir, url):
@@ -103,20 +122,18 @@ def report(dir, url):
       except Exception as e:
         print(f"Exception: {e}")
         pass
-  errors = results.get("Socket errors", None)
-  if errors != None:
-    raise Exception(f"Failed response found: {errors}")
+  errors = results.get("Socket errors", "N/A")
 
   print(f"    Reqs/s:       {results['Requests/sec']}")
   print(f"    Avg:       {results['Latency'][0]}")
-  #  print(f"    95th:      {results['95%']}")
+  print(f"    Errors:      {errors}")
   #  print(f"    Fastest:   {results['Fastest'][]}")
   print(f"    Slowest:   {results['Latency'][2]}")
 
 
 def warmup(dir, url):
   p("  Warming up")
-  run(dir, "warmup", ["hey", "-t", "8", "-c", "50", "-d", "1", url])
+  run(dir, "warmup", ["wrk", "-t", "8", "-c", "50", "-d", "1", url])
 
 
 def fizzbuzz():
@@ -167,16 +184,22 @@ def benchmark(dir):
   install(dir)
   build(dir)
   url = get_url(dir)
-  handle = start_server(dir)
+  fizzbuzz_url = url + "/fizzbuzz"
+  fizzboom_url = url + "/fizzboom"
+  server_handle = start_server(dir)
+  httpbin_handle = start_httpbin(dir)
   try:
-    if not test_output(dir, url):
+    if not test_output(dir, fizzbuzz_url):
       p("  Failed test")
     else:
-      warmup(dir, url)
-      measure(dir, url)
-      report(dir, url)
+      warmup(dir, fizzbuzz_url)
+      measure(dir, fizzbuzz_url)
+      report(dir, fizzbuzz_url)
+    measure_gently(dir, fizzboom_url)
+    report(dir, fizzboom_url)
   finally:
-    stop_server(dir, handle)
+    stop_handle("server", dir, server_handle)
+    stop_handle("httpbin", dir, httpbin_handle)
 
 
 if len(sys.argv) > 1:
