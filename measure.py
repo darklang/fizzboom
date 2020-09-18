@@ -75,7 +75,7 @@ def stop_server(dir, handle):
 
 def measure(dir, url):
   p("  Measuring")
-  run(dir, "measure", ["hey", "-n", "10000", "-c", "50", url])
+  run(dir, "measure", ["wrk", "-c", "100", "-t", "2", "-d", "5", url])
 
 
 def report(dir, url):
@@ -90,9 +90,9 @@ def report(dir, url):
           results[split[0]] = split[1].strip()
         else:
           # percentiles
-          split = line.strip().split(" in ")
-          if len(split) == 2:
-            results[split[0]] = split[1].strip()
+          split = re.split("\s+", line.strip())
+          if len(split) > 1:
+            results[split[0]] = [x.strip() for x in split[1:]]
           else:
             # status codes
             split = line.strip().split("]\t")
@@ -103,20 +103,20 @@ def report(dir, url):
       except Exception as e:
         print(f"Exception: {e}")
         pass
-  if results["200"] != "10000 responses":
-    raise Exception("Failed response found")
+  errors = results.get("Socket errors", None)
+  if errors != None:
+    raise Exception(f"Failed response found: {errors}")
 
-  print(f"    Succeeded: {results['200']}")
-  print(f"    rps:       {results['Requests/sec']}")
-  print(f"    Avg:       {results['Average']}")
-  print(f"    95th:      {results['95%']}")
-  print(f"    Fastest:   {results['Fastest']}")
-  print(f"    Slowest:   {results['Slowest']}")
+  print(f"    Reqs/s:       {results['Requests/sec']}")
+  print(f"    Avg:       {results['Latency'][0]}")
+  #  print(f"    95th:      {results['95%']}")
+  #  print(f"    Fastest:   {results['Fastest'][]}")
+  print(f"    Slowest:   {results['Latency'][2]}")
 
 
 def warmup(dir, url):
   p("  Warming up")
-  run(dir, "warmup", ["hey", "-n", "1000", "-c", "50", url])
+  run(dir, "warmup", ["hey", "-t", "8", "-c", "50", "-d", "1", url])
 
 
 def fizzbuzz():
