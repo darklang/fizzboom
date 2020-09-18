@@ -6,12 +6,10 @@ open Suave.Operators
 open Suave.Successful
 open LibExecution
 
-let runProgram () : String =
-  let program = Interpreter.program
-  Interpreter.runJSON program
-
 let app =
-    choose [ GET >=> (path "/" >=> OK (runProgram ()) )]
+    choose [ GET >=> choose [
+      (path "/fizzbuzz" >=> request (fun r -> OK (Interpreter.runJSON Interpreter.fizzbuzz) ))
+      (path "/fizzboom" >=> request (fun r -> OK (Interpreter.runJSON Interpreter.fizzboom) )) ]]
 
 [<EntryPoint>]
 let main argv =

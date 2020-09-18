@@ -72,7 +72,7 @@ def start_httpbin(dir):
   p("  Starting httpbin")
   file = open(logfile(dir, "httpbin"), "w")
   handle = subprocess.Popen(
-      ["docker", "run", "-p", "80:80", "kennethreitz/httpbin"],
+      ["docker", "run", "-p", "1025:80", "kennethreitz/httpbin"],
       cwd=dir,
       stderr=subprocess.STDOUT,
       stdout=file)
@@ -165,11 +165,22 @@ def fizzbuzz():
   return result
 
 
-valid_response = fizzbuzz()
+def fizzboom():
+  result = []
+  for i in range(1, 101):
+    if i % 15 == 0:
+      result.append("")
+    elif i % 5 == 0:
+      result.append("buzz")
+    elif i % 3 == 0:
+      result.append("fizz")
+    else:
+      result.append(str(i))
+  return result
 
 
 def test_fizzbuzz(dir, url):
-  p("  Testing output")
+  p("  Testing fizzbuzz output")
   response = None
   body = None
   answer = None
@@ -183,7 +194,31 @@ def test_fizzbuzz(dir, url):
     p(f"Body {body}")
     p(f"Answer {answer}")
 
-  return answer == valid_response
+  equal = answer == fizzbuzz()
+  if not equal:
+    p(f"Error in fizzbuzz output: {answer}")
+  return equal
+
+
+def test_fizzboom(dir, url):
+  p("  Testing fizzboom output")
+  response = None
+  body = None
+  answer = None
+  try:
+    response = urllib.request.urlopen(url + "/fizzboom")
+    body = response.read()
+    answer = json.loads(body)
+  except:
+    p("Failed to read fizzboom output")
+    p(f"Response {response}")
+    p(f"Body {body}")
+    p(f"Answer {answer}")
+
+  equal = answer == fizzboom()
+  if not equal:
+    p(f"Error in fizzboom output: {answer}")
+  return equal
 
 
 def get_host(dir):
@@ -207,14 +242,19 @@ def benchmark(dir):
   build(dir)
   host = get_host(dir)
   server_handle = start_server(dir)
+  httpbin_handle = start_httpbin(dir)
   try:
     if not test_fizzbuzz(dir, host):
-      p("  Failed test")
-    else:
-      warmup_fizzbuzz(dir, host)
-      measure_fizzbuzz(dir, host)
-      report_fizzbuzz(dir)
-    httpbin_handle = start_httpbin(dir)
+      p("  Failed fizzbuzz")
+      return
+    if not test_fizzboom(dir, host):
+      p("  Failed fizzboom")
+      return
+
+    warmup_fizzbuzz(dir, host)
+    measure_fizzbuzz(dir, host)
+    report_fizzbuzz(dir)
+
     measure_fizzboom(dir, host)
     report_fizzboom(dir)
   finally:

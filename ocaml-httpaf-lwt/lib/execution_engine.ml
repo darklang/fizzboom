@@ -211,7 +211,7 @@ let fizzboom : expr =
                     "=="
                     0
                     (int 0)
-                , sfn "HttpClient" "get" 0 [str "http://localhost:80/delay/1"]
+                , sfn "HttpClient" "get" 0 [str "http://localhost:1025/delay/1"]
                 , EIf
                     ( binOp
                         (binOp (var "i") "Int" "%" 0 (int 5))
