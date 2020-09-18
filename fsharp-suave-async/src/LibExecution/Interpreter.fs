@@ -1,6 +1,7 @@
 ﻿module LibExecution.Interpreter
 
 open FSharp.Data
+open FSharp.Data.JsonExtensions
 
 // fsharplint:disable FL0039
 
@@ -132,7 +133,7 @@ let sfn (module_: string) (function_: string) (version: int) (args: List<Expr>):
 let binOp (arg1: Expr) (module_: string) (function_: string) (version: int) (arg2: Expr): Expr =
     EBinOp(arg1, FnDesc.fnDesc "dark" "stdlib" module_ function_ version, arg2)
 
-let program =
+let fizzbuzz: Expr =
     ELet
         ("range",
          (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
@@ -158,6 +159,34 @@ let program =
                                         (EInt(bigint 0)),
                                     EString "fizz",
                                     sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
+
+let fizzboom: Expr =
+    ELet
+        ("range",
+         (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
+         (sfn
+             "List"
+              "map"
+              0
+              [ EVariable "range"
+                (ELambda
+                    ([ "i" ],
+                     EIf
+                         ((binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15))) "Int" "==" 0 (EInt(bigint 0))),
+                          (sfn "HttpClient" "get" 0 [ EString "http://localhost:1025/delay/1" ]),
+                          EIf
+                              (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5))) "Int" "==" 0 (EInt(bigint 0)),
+                               EString "buzz",
+                               EIf
+                                   (binOp
+                                       (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3)))
+                                        "Int"
+                                        "=="
+                                        0
+                                        (EInt(bigint 0)),
+                                    EString "fizz",
+                                    sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
+
 
 let rec eval (env: Environment.T) (st: Symtable.T) (e: Expr): Async<Dval> =
     match e with
@@ -284,6 +313,22 @@ module StdLib =
                     (function
                     | env, [ DInt a ] -> async { return Ok(DString(a.ToString())) }
 
+                    | _ -> async { return Error() }) }
+              { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
+                parameters = [ param "url" TString "URL to fetch" ]
+                returnVal = (retVal TString "Body of response")
+                fn =
+                    (function
+                    | env, [ DString url ] ->
+                        try
+                            async {
+                                let! response = Http.AsyncRequestString(url)
+                                let info = JsonValue.Parse(response)
+                                return Ok(DString(info?data.AsString()))
+                            }
+                        with e ->
+                            printfn "error in HttpClient::get: %s" (e.ToString())
+                            async { return Error() }
                     | _ -> async { return Error() }) } ]
 
         fns |> List.map (fun fn -> (fn.name, fn)) |> Map

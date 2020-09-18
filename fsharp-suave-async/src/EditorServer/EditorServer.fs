@@ -6,15 +6,23 @@ open Suave.Operators
 open Suave.Successful
 open LibExecution
 
-let runProgram () : WebPart =
-  fun ( x : HttpContext) ->
+let runFizzbuzz (x : HttpContext) : Async<HttpContext option> =
   async {
-    let program = Interpreter.program
-    let! result = Interpreter.runJSON program
-    return! OK result x }
+    let! response = Interpreter.runJSON Interpreter.fizzbuzz
+    return! OK response x
+  }
+
+
+let runFizzboom (x : HttpContext) : Async<HttpContext option> =
+  async {
+    let! response = Interpreter.runJSON Interpreter.fizzboom
+    return! OK response x
+  }
 
 let app =
-    choose [ GET >=> (path "/" >=> (runProgram ()) )]
+    choose [ GET >=> choose [
+      (path "/fizzbuzz" >=> runFizzbuzz)
+      (path "/fizzboom" >=> runFizzboom) ]]
 
 [<EntryPoint>]
 let main argv =
