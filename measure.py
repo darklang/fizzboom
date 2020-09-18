@@ -85,22 +85,26 @@ def stop_handle(name, dir, handle):
   handle.kill()
 
 
-def measure(dir, url):
-  p("  Measuring")
-  run(dir, "measure",
-      ["wrk", "-c", "100", "-t", "2", "-d", "8", "--timeout", "20", url])
+def measure_fizzbuzz(dir, url):
+  p("  Measuring fizzbuzz")
+  run(dir, "measure_fizzbuzz", [
+      "wrk", "--connections", "100", "--threads", "2", "--duration", "8",
+      "--timeout", "20", url + "/fizzbuzz"
+  ])
 
 
-def measure_gently(dir, url):
-  p("  Measuring gently")
-  run(dir, "measure_gently",
-      ["wrk", "-c", "10", "-t", "2", "-d", "10", "--timeout", "20", url])
+def measure_fizzboom(dir, url):
+  p("  Measuring fizzboom")
+  run(dir, "measure_fizzboom", [
+      "wrk", "--connections", "10", "--threads", "2", "--duration", "10",
+      "--timeout", "20", url + "/fizzboom"
+  ])
 
 
-def report(dir, url):
+def report(title, dir):
   results = {}
 
-  with open(logfile(dir, "measure"), "r") as file:
+  with open(logfile(dir, title), "r") as file:
     for line in file.readlines():
       try:
         # general stats
@@ -109,7 +113,7 @@ def report(dir, url):
           results[split[0]] = split[1].strip()
         else:
           # percentiles
-          split = re.split("\s+", line.strip())
+          split = re.split("\\s+", line.strip())
           if len(split) > 1:
             results[split[0]] = [x.strip() for x in split[1:]]
           else:
@@ -131,9 +135,20 @@ def report(dir, url):
   print(f"    Slowest:   {results['Latency'][2]}")
 
 
-def warmup(dir, url):
+def report_fizzbuzz(dir):
+  report("measure_fizzbuzz", dir)
+
+
+def report_fizzboom(dir):
+  report("measure_fizzboom", dir)
+
+
+def warmup_fizzbuzz(dir, url):
   p("  Warming up")
-  run(dir, "warmup", ["wrk", "-t", "8", "-c", "50", "-d", "1", url])
+  run(dir, "warmup", [
+      "wrk", "--threads", "8", "--connections", "50", "--duration", "2",
+      url + "/fizzbuzz"
+  ])
 
 
 def fizzbuzz():
@@ -153,13 +168,13 @@ def fizzbuzz():
 valid_response = fizzbuzz()
 
 
-def test_output(dir, url):
+def test_fizzbuzz(dir, url):
   p("  Testing output")
   response = None
   body = None
   answer = None
   try:
-    response = urllib.request.urlopen(url)
+    response = urllib.request.urlopen(url + "/fizzbuzz")
     body = response.read()
     answer = json.loads(body)
   except:
@@ -171,7 +186,7 @@ def test_output(dir, url):
   return answer == valid_response
 
 
-def get_url(dir):
+def get_host(dir):
   with open(dir + "/port", "r") as myfile:
     lines = myfile.readlines()
     port = "".join(lines)
@@ -183,20 +198,18 @@ def benchmark(dir):
   p("Benchmarking " + dir)
   install(dir)
   build(dir)
-  url = get_url(dir)
-  fizzbuzz_url = url + "/fizzbuzz"
-  fizzboom_url = url + "/fizzboom"
+  host = get_host(dir)
   server_handle = start_server(dir)
-  httpbin_handle = start_httpbin(dir)
   try:
-    if not test_output(dir, fizzbuzz_url):
+    if not test_fizzbuzz(dir, host):
       p("  Failed test")
     else:
-      warmup(dir, fizzbuzz_url)
-      measure(dir, fizzbuzz_url)
-      report(dir, fizzbuzz_url)
-    measure_gently(dir, fizzboom_url)
-    report(dir, fizzboom_url)
+      warmup_fizzbuzz(dir, host)
+      measure_fizzbuzz(dir, host)
+      report_fizzbuzz(dir)
+    httpbin_handle = start_httpbin(dir)
+    measure_fizzboom(dir, host)
+    report_fizzboom(dir)
   finally:
     stop_handle("server", dir, server_handle)
     stop_handle("httpbin", dir, httpbin_handle)
