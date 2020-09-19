@@ -410,7 +410,13 @@ module StdLib = struct
         * Alternatively, we could clear the headers ref when we receive a
         * new `ok` header. *)
                   C.cleanup c ;
-                  Ok (DString (Buffer.contents responsebuf))
+                  responsebuf
+                  |> Buffer.contents
+                  |> Yojson.Safe.from_string
+                  |> Yojson.Safe.Util.member "data"
+                  |> Yojson.Safe.Util.to_string
+                  |> DString
+                  |> Ok
                 with Curl.CurlException (curl_code, code, s) -> Error () )
             | _ ->
                 Error ()) } ]
