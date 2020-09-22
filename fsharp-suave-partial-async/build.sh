@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-dotnet build --configuration Release --runtime osx-x64
+dotnet build --configuration Release
