@@ -2,4 +2,5 @@
 
 set -euo pipefail
 
-paket install
+dotnet tool restore
+dotnet paket install
