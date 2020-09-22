@@ -1,6 +1,9 @@
 open Base
 module C = Curl
 
+let (let*) = Lwt.bind
+let (and*) = Lwt.both
+
 module FnDesc = struct
   module T = struct
     type t =
@@ -101,7 +104,7 @@ module Dval = struct
     List.find ~f:is_special list |> Option.value ~default:(DList list)
 end
 
-let err (e : runtimeError) = DSpecial (DError e)
+let err (e : runtimeError) : dval = DSpecial (DError e)
 
 module Symtable = struct
   type t = symtable
@@ -121,7 +124,7 @@ module Environment = struct
     { name : FnDesc.t
     ; parameters : param list
     ; return_val : ret_val
-    ; fn : t * dval list -> (dval, unit) Result.t }
+    ; fn : t * dval list -> (dval, unit) Result.t Lwt.t }
 
   and fn_map = (FnDesc.t, built_in_fn, FnDesc.comparator_witness) Map.t
 
@@ -231,37 +234,37 @@ let fizzboom : expr =
                         , sfn "Int" "toString" 0 [var "i"] ) ) ) ) ] )
 
 
-let rec eval (env : Environment.t) (st : Symtable.t) (e : expr) : dval =
+let rec eval (env : Environment.t) (st : Symtable.t) (e : expr) : dval Lwt.t =
   match e with
   | EInt i ->
-      DInt i
+      Lwt.return (DInt i)
   | EString s ->
-      DString s
+      Lwt.return (DString s)
   | ELet (lhs, rhs, body) ->
-      let rhs = eval env st rhs in
+      let* rhs = eval env st rhs in
       let st = Map.set st lhs rhs in
       eval env st body
   | EFnCall (desc, args) ->
     ( match Map.find env.functions desc with
     | Some fn ->
-        let args = List.map ~f:(eval env st) args in
+        let* args = Lwt_list.map_s (eval env st) args in
         call_fn env fn args
     | None ->
-        err (NotAFunction desc) )
+        Lwt.return (err (NotAFunction desc)) )
   | EBinOp (arg1, desc, arg2) ->
     ( match Map.find env.functions desc with
     | Some fn ->
-        let arg1 = eval env st arg1 in
-        let arg2 = eval env st arg2 in
+        let* arg1 = eval env st arg1 in
+        let* arg2 = eval env st arg2 in
         call_fn env fn [arg1; arg2]
     | None ->
-        err (NotAFunction desc) )
+        Lwt.return (err (NotAFunction desc)) )
   | ELambda (vars, expr) ->
-      DLambda (st, vars, expr)
+      Lwt.return (DLambda (st, vars, expr))
   | EVariable name ->
-      Symtable.get st name
+      Lwt.return (Symtable.get st name)
   | EIf (cond, thenbody, elsebody) ->
-      let cond = eval env st cond in
+      let* cond = eval env st cond in
 
       ( match cond with
       | DBool true ->
@@ -269,22 +272,22 @@ let rec eval (env : Environment.t) (st : Symtable.t) (e : expr) : dval =
       | DBool false ->
           eval env st elsebody
       | _ ->
-          err (CondWithNonBool cond) )
+          Lwt.return (err (CondWithNonBool cond) ))
 
 
 and call_fn
     (env : Environment.t) (fn : Environment.built_in_fn) (args : dval list) :
-    dval =
+    dval Lwt.t =
   match List.find ~f:Dval.is_special args with
   | Some special ->
-      special
+      Lwt.return special
   | None ->
       let result = fn.fn (env, args) in
-      ( match result with
+      ( match%lwt result with
       | Ok result ->
-          result
+          Lwt.return result
       | Error () ->
-          err (FnCalledWithWrongTypes (fn.name, args, fn.parameters)) )
+          Lwt.return (err (FnCalledWithWrongTypes (fn.name, args, fn.parameters)) ))
 
 
 module StdLib = struct
@@ -314,8 +317,9 @@ module StdLib = struct
                 |> List.map ~f:(fun i -> DInt i)
                 |> DList
                 |> Ok
+                |> Lwt.return
             | _ ->
-                Error ()) }
+                Lwt.return (Error ())) }
       ; { name = FnDesc.stdFnDesc "List" "map" 0
         ; parameters =
             [ param "list" (TList (TVariable "a")) "The list to be operated on"
@@ -330,25 +334,25 @@ module StdLib = struct
         ; fn =
             (function
             | env, [DList l; DLambda (st, [var], body)] ->
-                let result =
-                  l
-                  |> List.map ~f:(fun dv ->
-                         let st = Map.set st var dv in
-                         eval env st body)
+                let* result =
+                  l |>
+                  Lwt_list.map_s (fun dv ->
+                    let st = Map.set st var dv in
+                    eval env st body)
                 in
-
-                result |> Dval.toDList |> Ok
+                result |> Dval.toDList |> Ok |> Lwt.return
             | _ ->
-                Error ()) }
+                Lwt.return (Error ())) }
       ; { name = FnDesc.stdFnDesc "Int" "%" 0
         ; parameters = [param "a" TInt "Numerator"; param "b" TInt "Denominator"]
         ; return_val = ret_val TInt "Returns the modulus of a / b"
         ; fn =
             (function
             | env, [DInt a; DInt b] ->
-              (try Ok (DInt (Z.erem a b)) with _ -> Ok (DInt Z.zero))
+              (try DInt (Z.erem a b) with _ -> DInt Z.zero)
+              |> Ok |> Lwt.return
             | _ ->
-                Error ()) }
+                Lwt.return (Error ())) }
       ; { name = FnDesc.stdFnDesc "Int" "==" 0
         ; parameters = [param "a" TInt "a"; param "b" TInt "b"]
         ; return_val =
@@ -357,21 +361,21 @@ module StdLib = struct
               "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise"
         ; fn =
             (function
-            | env, [DInt a; DInt b] -> Ok (DBool (Z.equal a b)) | _ -> Error ())
+            | env, [DInt a; DInt b] -> Lwt.return (Ok (DBool (Z.equal a b))) | _ -> Lwt.return (Error ()))
         }
       ; { name = FnDesc.stdFnDesc "Int" "toString" 0
         ; parameters = [param "a" TInt "value"]
         ; return_val = ret_val TString "Stringified version of a"
         ; fn =
             (function
-            | env, [DInt a] -> Ok (DString (Z.to_string a)) | _ -> Error ()) }
+            | env, [DInt a] -> Lwt.return (Ok (DString (Z.to_string a))) | _ -> Lwt.return (Error ())) }
       ; { name = FnDesc.stdFnDesc "HttpClient" "get" 0
         ; parameters = [param "url" TString "The URL to be fetched"]
         ; return_val = ret_val TString "Fetch the body of the page at the URL"
         ; fn =
             (function
             | env, [DString url] ->
-              ( try
+              ( try%lwt
                   let errorbuf = ref "" in
                   let responsebuf = Buffer.create 16384 in
                   let responsefn str : int =
@@ -400,7 +404,7 @@ module StdLib = struct
                   (* Seems like redirects can be used to get around the above list... *)
                   C.set_redirprotocols c [C.CURLPROTO_HTTP; C.CURLPROTO_HTTPS] ;
                   (* Actually do the request *)
-                  C.perform c ;
+                  let* code = Curl_lwt.perform c in
                   (* If we get a redirect back, then we may see the content-type
         * header twice. Fortunately, because we push headers to the front
         * above, and take the first in charset, we get the right
@@ -410,10 +414,17 @@ module StdLib = struct
         * Alternatively, we could clear the headers ref when we receive a
         * new `ok` header. *)
                   C.cleanup c ;
-                  Ok (DString (Buffer.contents responsebuf))
-                with Curl.CurlException (curl_code, code, s) -> Error () )
+                  responsebuf
+                  |> Buffer.contents
+                  |> Yojson.Safe.from_string
+                  |> Yojson.Safe.Util.member "data"
+                  |> Yojson.Safe.Util.to_string
+                  |> DString
+                  |> Ok
+                  |> Lwt.return
+                with Curl.CurlException (curl_code, code, s) -> Lwt.return (Error ()) )
             | _ ->
-                Error ()) } ]
+                Lwt.return (Error ())) } ]
     in
 
     fns
@@ -421,10 +432,12 @@ module StdLib = struct
     |> Map.of_alist_exn (module FnDesc)
 end
 
-let run (e : expr) : dval =
+let run (e : expr) : dval Lwt.t =
   let env = Environment.envWith (StdLib.functions ()) in
-  eval env Symtable.empty e
+  (eval env Symtable.empty e)
 
 
-let run_json (e : expr) : string =
-  run e |> Dval.to_json |> Yojson.Safe.to_string ~std:true
+let run_json (e : expr) : string Lwt.t =
+  let* result = run e in
+  result |> Dval.to_json |> Yojson.Safe.to_string ~std:true |> Lwt.return
+
