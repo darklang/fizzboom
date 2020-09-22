@@ -72,7 +72,7 @@ def start_httpbin(dir):
   p("  Starting httpbin")
   file = open(logfile(dir, "httpbin"), "w")
   handle = subprocess.Popen(
-      ["docker", "run", "-p", "1025:80", "kennethreitz/httpbin"],
+      ["docker", "run", "--rm", "-p", "1025:80", "kennethreitz/httpbin"],
       cwd=dir,
       stderr=subprocess.STDOUT,
       stdout=file)
