@@ -39,7 +39,7 @@ variations (different web servers, new languages/frameworks, etc). Some rules:
 
 ## Overview of codebase
 
-The benchmark is implemented in [measure.py](measure.py).
+The benchmark is implemented in [measure.py](measure.py). Requires [wrk](https://github.com/wg/wrk) to be installed.
 
 Each benchmark candidate is in its own directory, which has some known files:
 
