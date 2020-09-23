@@ -96,7 +96,7 @@ def measure_fizzbuzz(dir, url):
 def measure_fizzboom(dir, url):
   p("  Measuring fizzboom")
   run(dir, "measure_fizzboom", [
-      "wrk", "--connections", "10", "--threads", "2", "--duration", "10",
+      "wrk", "--connections", "30", "--threads", "30", "--duration", "30",
       "--timeout", "20", url + "/fizzboom"
   ])
 
