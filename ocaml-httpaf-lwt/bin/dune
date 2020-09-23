@@ -1,4 +1,4 @@
 (executable
  (name server)
  (public_name server)
- (libraries lib httpaf-lwt-unix httpaf lwt lwt.unix base stdio))
+ (libraries lib httpaf-lwt-unix httpaf lwt lwt.unix base stdio curl curl.lwt))

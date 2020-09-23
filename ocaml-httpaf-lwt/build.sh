@@ -2,5 +2,5 @@
 
 set -euo pipefail
 
-esy build --release
+esy build --release $@
 

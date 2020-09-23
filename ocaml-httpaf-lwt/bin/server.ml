@@ -1,35 +1,36 @@
 open Httpaf
-open Httpaf_lwt_unix
 
 let fizzbuzz = Lib.Execution_engine.fizzbuzz
 
 let fizzboom = Lib.Execution_engine.fizzboom
 
+let (let*) = Lwt.bind
+let (and*) = Lwt.both
+
 module Server = struct
-  let get reqd =
-    let {Request.target; _} = Reqd.request reqd in
-    let handle program =
-      let text = Lib.Execution_engine.run_json program in
-      let headers =
-        Headers.of_list [("content-length", Int.to_string (String.length text))]
-      in
-      Reqd.respond_with_string reqd (Response.create ~headers `OK) text
-    in
-    let request_body = Reqd.request_body reqd in
-    Body.close_reader request_body ;
-    match target with
-    | "/fizzbuzz" ->
-        handle fizzbuzz
-    | "/fizzboom" ->
-        handle fizzboom
-    | _ ->
-        Reqd.respond_with_string
-          reqd
-          (Response.create `Not_found)
-          "Route not found"
+  let get _ reqd =
+    Lwt.async (fun () ->
+        Lwt.catch
+          (fun () ->
+            let handle program =
+              let* text = Lib.Execution_engine.run_json program in
+              let headers = Headers.of_list [("content-length", Int.to_string (String.length text))] in
+              Reqd.respond_with_string reqd (Response.create ~headers `OK) text;
+              Lwt.return_unit
+            in
+            let {Request.meth; target; _} = Httpaf.Reqd.request reqd in
+            (match meth, target with
+            | `GET, "/fizzbuzz" -> handle fizzbuzz
+            | `GET, "/fizzboom" -> handle fizzboom
+            | _ ->
+              (* let headers = Headers.of_list [ "connection", "close" ] in *)
+              (* Reqd.respond_with_string reqd (Response.create ~headers `Method_not_allowed) ""); *)
+              Lwt.return_unit))
+          (fun exn ->
+            Httpaf.Reqd.report_exn reqd exn;
+            Lwt.return_unit))
 
-
-  let error_handler ?request:_ error start_response =
+  let error_handler _ ?request:_ error start_response : unit =
     let response_body = start_response Headers.empty in
     ( match error with
     | `Exn exn ->
@@ -40,9 +41,9 @@ module Server = struct
     Body.close_writer response_body
 end
 
-let request_handler (_ : Unix.sockaddr) = Server.get
+let request_handler = Server.get
 
-let error_handler (_ : Unix.sockaddr) = Server.error_handler
+let error_handler  = Server.error_handler
 
 let main port =
   let open Lwt.Infix in
@@ -62,6 +63,21 @@ let main port =
 
 
 let () =
+  let _options = [
+   ("fd_passing", `fd_passing)
+  ; ("fdatasync", `fdatasync)
+  ; ("get_affinity", `get_affinity)
+  ; ("get_cpu", `get_cpu)
+  ; ("get_credentials", `get_credentials)
+  ; ("libev", `libev)
+  ; ("madvise", `madvise)
+  ; ("mincore", `mincore)
+  ; ("recv_msg", `recv_msg)
+  ; ("send_msg", `send_msg)
+  ; ("set_affinity", `set_affinity)
+  ; ("wait4", `wait4)
+  ] in
+  (* Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) )); *)
   "port"
   |> Stdio.In_channel.read_all
   |> Base.String.strip

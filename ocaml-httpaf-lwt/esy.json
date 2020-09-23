@@ -19,7 +19,9 @@
     "@opam/yojson": "1.7.0",
     "@opam/ocurl": "0.9.1",
     "@opam/ppx_jane": "v0.14.0",
-    "@opam/zarith": "1.10"
+    "@opam/zarith": "1.10",
+    "@opam/lwt": "5.3.0",
+    "@opam/lwt_ppx": "2.0.1"
   },
   "devDependencies": {
     "@opam/merlin": "*"
