@@ -63,8 +63,8 @@ let main port =
 
 
 let () =
-  let _options = [
-   ("fd_passing", `fd_passing)
+  let options = [
+    ("fd_passing", `fd_passing)
   ; ("fdatasync", `fdatasync)
   ; ("get_affinity", `get_affinity)
   ; ("get_cpu", `get_cpu)
@@ -77,7 +77,7 @@ let () =
   ; ("set_affinity", `set_affinity)
   ; ("wait4", `wait4)
   ] in
-  (* Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) )); *)
+  Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) ));
   "port"
   |> Stdio.In_channel.read_all
   |> Base.String.strip

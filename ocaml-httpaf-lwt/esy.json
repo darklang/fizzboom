@@ -11,6 +11,7 @@
   "scripts": {},
   "dependencies": {
     "ocaml": "4.11.0",
+    "@opam/conf-libev": "4-11",
     "@opam/base": "v0.14.0",
     "@opam/dune": "2.7.1",
     "@opam/httpaf": "0.6.6",
