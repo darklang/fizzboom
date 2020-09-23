@@ -8,66 +8,29 @@ let (let*) = Lwt.bind
 let (and*) = Lwt.both
 
 module Server = struct
-  let get reqd =
-    let {Request.target; meth; headers} = Reqd.request reqd in
-    let handle program =
-      let response =
-        let content_type =
-          match Headers.get headers "content-type" with
-          | None   -> "application/octet-stream"
-          | Some x -> x
-        in
-        Response.create ~headers:(Headers.of_list ["content-type", content_type; "connection", "close"]) `OK
-      in
-      let response_body = Reqd.respond_with_streaming reqd response in
-      let rec on_read buffer ~off ~len =
-        Lwt.async (fun () ->
-          let* text = Lib.Execution_engine.run_json fizzboom in
-          (*   let headers = *)
-          (*     Headers.of_list [("content-length", Int.to_string (String.length text))] *)
-          (*   in *)
-          Body.write_string response_body text ~off ~len;
-          Lwt.return ()
-        );
-      and on_eof () =
-        Body.close_writer response_body
-      in
-     Body.schedule_read (Reqd.request_body reqd) ~on_eof ~on_read
-    in
-    match meth, target with
-    | `GET, "/fizzbuzz"  ->
-       handle fizzbuzz
-    | `GET, "/fizzboom"  ->
-       handle fizzboom
-    | _ ->
-      let headers = Headers.of_list [ "connection", "close" ] in
-      Reqd.respond_with_string reqd (Response.create ~headers `Method_not_allowed) ""
+  let get _ reqd =
+    Lwt.async (fun () ->
+        Lwt.catch
+          (fun () ->
+            let handle program =
+              let* text = Lib.Execution_engine.run_json program in
+              let headers = Headers.of_list [("content-length", Int.to_string (String.length text))] in
+              Reqd.respond_with_string reqd (Response.create ~headers `OK) text;
+              Lwt.return_unit
+            in
+            let {Request.meth; target; _} = Httpaf.Reqd.request reqd in
+            (match meth, target with
+            | `GET, "/fizzbuzz" -> handle fizzbuzz
+            | `GET, "/fizzboom" -> handle fizzboom
+            | _ ->
+              (* let headers = Headers.of_list [ "connection", "close" ] in *)
+              (* Reqd.respond_with_string reqd (Response.create ~headers `Method_not_allowed) ""); *)
+              Lwt.return_unit))
+          (fun exn ->
+            Httpaf.Reqd.report_exn reqd exn;
+            Lwt.return_unit))
 
-
-    (* let {Request.target; _} = Reqd.request reqd in *)
-    (* let on_eof = body.close_write responrd_ody *)
-    (* let handle program  = *)
-    (*   let* text = Lib.Execution_engine.run_json program in *)
-    (*   let headers = *)
-    (*     Headers.of_list [("content-length", Int.to_string (String.length text))] *)
-    (*   in *)
-    (*   Reqd.Body.schedule_read reqd ~on_read(Response.create ~headers `OK) text; *)
-    (* in *)
-    (* let request_body = Reqd.request_body reqd in *)
-    (* Body.close_reader request_body ; *)
-    (* match target with *)
-    (* | "/fizzbuzz" -> *)
-    (*     handle fizzbuzz *)
-    (* | "/fizzboom" -> *)
-    (*     handle fizzboom *)
-    (* | _ -> *)
-    (*     (Reqd.respond_with_string *)
-    (*       reqd *)
-    (*       (Response.create `Not_found) *)
-    (*       "Route not found"; Lwt.return_unit) *)
-
-
-  let error_handler ?request:_ error start_response : unit =
+  let error_handler _ ?request:_ error start_response : unit =
     let response_body = start_response Headers.empty in
     ( match error with
     | `Exn exn ->
@@ -78,9 +41,9 @@ module Server = struct
     Body.close_writer response_body
 end
 
-let request_handler (_ : Unix.sockaddr) = Server.get
+let request_handler = Server.get
 
-let error_handler (_ : Unix.sockaddr) = Server.error_handler
+let error_handler  = Server.error_handler
 
 let main port =
   let open Lwt.Infix in
