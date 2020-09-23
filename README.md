@@ -13,10 +13,12 @@ The benchmark has two parts:
   fizzbuzz and return it as a JSON response. This is to test the raw speed of
   the HTTP server and interpreter.
 
-- fizzboom: a variation where instead of printing "fizzbuzz", the program makes
+- fizzboom: like fizzbuzz, except instead of printing "fizzbuzz", the program makes
   a HTTP call that takes 1 second to complete. In Dark, users can write code
   that makes HTTP calls to arbitrary servers, and we must handle pessimistic
   cases like this.
+
+In both cases, the most important metric is _requests/second_.
 
 # Contributing
 
@@ -47,7 +49,7 @@ Each benchmark candidate is in its own directory, which has some known files:
 - `./build.sh` - builds the server. This should use release configuration
 - `./exe` - a symlink to the compiled executable
 - `PORT` - the port to use to connect to the server
-- `BROKEN` - if this file exists, don't use that in the benchmark
+- `BROKEN` - if this file exists, skip the implementation in this directory
 
 ## Code of Conduct
 
