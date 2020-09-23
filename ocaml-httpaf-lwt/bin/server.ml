@@ -9,8 +9,8 @@ let (and*) = Lwt.both
 
 module Server = struct
   let get reqd =
-    match Reqd.request reqd  with
-    | { Request.meth = `POST; headers; _ } ->
+    let {Request.target; meth; headers} = Reqd.request reqd in
+    let handle program =
       let response =
         let content_type =
           match Headers.get headers "content-type" with
@@ -19,24 +19,29 @@ module Server = struct
         in
         Response.create ~headers:(Headers.of_list ["content-type", content_type; "connection", "close"]) `OK
       in
-      let request_body  = Reqd.request_body reqd in
       let response_body = Reqd.respond_with_streaming reqd response in
       let rec on_read buffer ~off ~len =
-        Lwt.async @@ fun () -> Lwt.Infix.(
-          Lwt_unix.sleep(1.0) >>= fun () ->
-          Body.schedule_bigstring response_body buffer ~off ~len;
-          Body.flush response_body (fun () ->
-            Body.schedule_read request_body ~on_eof ~on_read);
+        Lwt.async (fun () ->
+          let* text = Lib.Execution_engine.run_json fizzboom in
+          (*   let headers = *)
+          (*     Headers.of_list [("content-length", Int.to_string (String.length text))] *)
+          (*   in *)
+          Body.write_string response_body text ~off ~len;
           Lwt.return ()
         );
       and on_eof () =
         Body.close_writer response_body
       in
-      Body.schedule_read (Reqd.request_body reqd) ~on_eof ~on_read
+     Body.schedule_read (Reqd.request_body reqd) ~on_eof ~on_read
+    in
+    match meth, target with
+    | `GET, "/fizzbuzz"  ->
+       handle fizzbuzz
+    | `GET, "/fizzboom"  ->
+       handle fizzboom
     | _ ->
       let headers = Headers.of_list [ "connection", "close" ] in
       Reqd.respond_with_string reqd (Response.create ~headers `Method_not_allowed) ""
-
 
 
     (* let {Request.target; _} = Reqd.request reqd in *)
