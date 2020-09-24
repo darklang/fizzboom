@@ -97,8 +97,11 @@ def measure_fizzbuzz(dir, url):
 
 def measure_fizzboom(dir, url):
   p("  Measuring fizzboom")
+  # The delay.js node server is capable of about 1300 req/s
+  # To make this possible on macos, may need to run:
+  #   sudo sysctl -w kern.maxfiles=20480
   cmd = [
-      "wrk", "--connections", "1000", "--threads", "500", "--duration", "10s",
+      "wrk", "--connections", "500", "--threads", "500", "--duration", "30s",
       "--timeout", "20s", url + "/fizzboom"
   ]
   run(dir, "measure_fizzboom", cmd)
