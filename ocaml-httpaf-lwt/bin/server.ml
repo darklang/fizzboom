@@ -78,8 +78,10 @@ let () =
   ; ("wait4", `wait4)
   ] in
   Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) ));
-  "port"
-  |> Stdio.In_channel.read_all
-  |> Base.String.strip
-  |> Base.Int.of_string
-  |> main
+  let port =
+    "port"
+    |> Stdio.In_channel.read_all
+    |> Base.String.strip
+  in
+  print_endline ("Using port: " ^ port);
+  main (Base.Int.of_string port)
