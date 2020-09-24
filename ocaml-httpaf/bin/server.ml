@@ -1,5 +1,4 @@
 open Httpaf
-open Httpaf_lwt_unix
 
 let fizzbuzz = Lib.Execution_engine.fizzbuzz
 
