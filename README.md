@@ -41,7 +41,15 @@ variations (different web servers, new languages/frameworks, etc). Some rules:
 
 ## Overview of codebase
 
+### Benchmark driver
+
 The benchmark is implemented in [measure.py](measure.py).
+
+Run `./measure` to test all the fizzboom implementations, or
+`./measure <directory_name1> <directory_name2> <etc>` to test a subset
+of them.
+
+### Benchmarks
 
 Each benchmark candidate is in its own directory, which has some known files:
 
@@ -50,6 +58,18 @@ Each benchmark candidate is in its own directory, which has some known files:
 - `./run.sh` - runs the server
 - `PORT` - the port to use to connect to the server
 - `BROKEN` - if this file exists, skip the implementation in this directory
+
+Benchmarks implement a HTTP server connected to an interpreter which each
+implement a simple subset of the dark language. The function `HTTPClient::get` calls a URL and fetches the `data` key of the json it returns; the URL to pass to it is `http://localhost:1025/delay/1`.
+
+### Delay server
+
+The delay server is run via `node delay.js`. You can make a call to it as `delay/1` for it to wait 1s (pick any integer).
+
+The delay server is capable of handling about 900 req/s on my machine with
+minimal CPU overhead.
+
+## Results
 
 ## Code of Conduct
 
