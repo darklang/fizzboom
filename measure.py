@@ -11,6 +11,7 @@ import urllib.request
 import re
 import csv
 import io
+import signal
 import resource
 
 # wrk needs enough files to make 500 connections
@@ -20,6 +21,15 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (2056, resource.RLIM_INFINITY))
 def readfile(filename):
   with open(filename, 'r') as f:
     return f.read()
+
+
+# Ensure the server isn't running when we try to start it
+def kill_proc_on_port(port):
+  proc = subprocess.run(["lsof", "-t", "-i", f":{port}"], capture_output=True)
+  if proc.returncode == 0:
+    pid = int(proc.stdout.strip())
+    os.kill(pid, signal.SIGTERM)
+    os.kill(pid, signal.SIGKILL)
 
 
 def p(str):
@@ -68,6 +78,8 @@ def install(dir):
 
 
 def start_server(dir):
+  port = int(readfile(f"{dir}/port"))
+  kill_proc_on_port(port)
   p("  Starting server")
   filename = logfile(dir, "server")
   file = open(filename, "w")
@@ -87,6 +99,7 @@ def start_server(dir):
 
 
 def start_delay_server(dir):
+  kill_proc_on_port(1025)
   p("  Starting delay_server")
   file = open(logfile(dir, "delay_server"), "w")
   handle = subprocess.Popen(["node", "delay.js"],
@@ -101,9 +114,6 @@ def stop_handle(name, dir, handle):
 
   handle.terminate()
   handle.kill()
-  # Doesn't behave nicely when shut down
-  if name == "server" and dir == "rust-hyper":
-    subprocess.check_output(["killall", "xk"])
 
 
 def measure_fizzbuzz(dir, url):
