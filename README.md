@@ -60,7 +60,33 @@ Each benchmark candidate is in its own directory, which has some known files:
 - `BROKEN` - if this file exists, skip the implementation in this directory
 
 Benchmarks implement a HTTP server connected to an interpreter which each
-implement a simple subset of the dark language. The function `HTTPClient::get` calls a URL and fetches the `data` key of the json it returns; the URL to pass to it is `http://localhost:1025/delay/1`.
+implement a simple subset of the dark language. The function `HTTPClient::get`
+calls a URL and fetches the `data` key of the json it returns; the URL to pass
+to it is `http://localhost:1025/delay/1`.
+
+The purpose of the benchmark is to establish:
+
+- how fast the language is
+- what is the cost of async
+- can anything to done to make async much faster
+
+There should be, in general, about 2-3 benchmarks per language:
+
+- a synchronous implementation
+- an asynchronous implementation
+- an optimized asynchronous implementation
+
+The sync implementation helps us figure out a baseline for the performance. We
+can then compare the sync and async implementation on fizzbuzz to see how much
+async costs.
+
+Different languages can be compared async-vs-async for both fizzboom (which is
+async performance) and fizzbuzz (which is raw performance given fizzbuzz
+constraints).
+
+The optimized async implementation is to see the value of different
+optimizations and see if there are ways to optimize above a baseline async
+implementation.
 
 ### Delay server
 
@@ -70,6 +96,8 @@ The delay server is capable of handling about 900 req/s on my machine with
 minimal CPU overhead.
 
 ## Results
+
+Recent results are posted to the [Result issue](https://github.com/darklang/fizzboom/issues/13)
 
 ## Code of Conduct
 
