@@ -1,2 +1,4 @@
 .ionide
 logs/*.log
+fsharp*/**/bin
+fsharp*/**/obj

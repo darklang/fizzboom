@@ -321,7 +321,9 @@ if len(sys.argv) > 1:
     benchmark(f)
 else:
   p("Starting entire benchmark")
-  for f in os.listdir():
+  dirs = os.listdir()
+  dirs.sort()
+  for f in dirs:
     if (os.path.isdir(f) and (not f.startswith("."))
         and (os.path.exists(f + "/build.sh"))):
       benchmark(f)

@@ -1,0 +1,8 @@
+source https://api.nuget.org/v3/index.json
+
+storage: none
+
+nuget Giraffe ~> 4.1
+nuget TaskBuilder.fs ~> 2.1
+nuget FSharp.Data
+nuget Ply ~> 0.1

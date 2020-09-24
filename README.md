@@ -41,9 +41,7 @@ variations (different web servers, new languages/frameworks, etc). Some rules:
 
 ## Overview of codebase
 
-### Benchmark driver
-
-The benchmark is implemented in [measure.py](measure.py).
+The benchmark is implemented in [measure.py](measure.py). Requires [wrk](https://github.com/wg/wrk) to be installed.
 
 Run `./measure` to test all the fizzboom implementations, or
 `./measure <directory_name1> <directory_name2> <etc>` to test a subset
