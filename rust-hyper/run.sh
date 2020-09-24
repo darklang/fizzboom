@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-cargo run --release
+target/release/xk

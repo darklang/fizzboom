@@ -63,12 +63,18 @@ def install(dir):
 
 def start_server(dir):
   p("  Starting server")
-  file = open(logfile(dir, "server"), "w")
+  filename = logfile(dir, "server")
+  file = open(filename, "w")
   handle = subprocess.Popen("./run.sh",
                             cwd=dir,
                             stderr=subprocess.STDOUT,
                             stdout=file)
-  time.sleep(2)
+  time.sleep(1)
+  if handle.poll() != None:
+    raise (Exception(f"Error starting server: see {filename}"))
+  time.sleep(1)
+  if handle.poll() != None:
+    raise (Exception(f"Error starting server: see {filename}"))
   return handle
 
 
@@ -84,7 +90,12 @@ def start_delay_server(dir):
 
 def stop_handle(name, dir, handle):
   p(f"  Stopping {name}")
+
+  handle.terminate()
   handle.kill()
+  # Doesn't behave nicely when shut down
+  if name == "server" and dir == "rust-hyper":
+    subprocess.check_output(["killall", "xk"])
 
 
 def measure_fizzbuzz(dir, url):
@@ -202,7 +213,7 @@ def test_fizzbuzz(dir, url):
 
   equal = answer == fizzbuzz()
   if not equal:
-    p(f"Error in fizzbuzz output: {answer}")
+    p(f"Error in fizzbuzz output: {response}")
   return equal
 
 
