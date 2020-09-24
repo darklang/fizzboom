@@ -11,6 +11,10 @@ import urllib.request
 import re
 import csv
 import io
+import resource
+
+# wrk needs enough files to make 500 connections
+resource.setrlimit(resource.RLIMIT_NOFILE, (2056, resource.RLIM_INFINITY))
 
 
 def p(str):
@@ -68,14 +72,12 @@ def start_server(dir):
   return handle
 
 
-def start_httpbin(dir):
-  p("  Starting httpbin")
-  file = open(logfile(dir, "httpbin"), "w")
-  handle = subprocess.Popen(
-      ["docker", "run", "-p", "1025:80", "kennethreitz/httpbin"],
-      cwd=dir,
-      stderr=subprocess.STDOUT,
-      stdout=file)
+def start_delay_server(dir):
+  p("  Starting delay_server")
+  file = open(logfile(dir, "delay_server"), "w")
+  handle = subprocess.Popen(["node", "delay.js"],
+                            stderr=subprocess.STDOUT,
+                            stdout=file)
   time.sleep(2)
   return handle
 
@@ -88,17 +90,18 @@ def stop_handle(name, dir, handle):
 def measure_fizzbuzz(dir, url):
   p("  Measuring fizzbuzz")
   run(dir, "measure_fizzbuzz", [
-      "wrk", "--connections", "100", "--threads", "2", "--duration", "8",
-      "--timeout", "20", url + "/fizzbuzz"
+      "wrk", "--connections", "100", "--threads", "2", "--duration", "2s",
+      "--timeout", "20s", url + "/fizzbuzz"
   ])
 
 
 def measure_fizzboom(dir, url):
   p("  Measuring fizzboom")
-  run(dir, "measure_fizzboom", [
-      "wrk", "--connections", "30", "--threads", "30", "--duration", "30",
-      "--timeout", "20", url + "/fizzboom"
-  ])
+  cmd = [
+      "wrk", "--connections", "1000", "--threads", "500", "--duration", "10s",
+      "--timeout", "20s", url + "/fizzboom"
+  ]
+  run(dir, "measure_fizzboom", cmd)
 
 
 def report(title, dir):
@@ -242,7 +245,7 @@ def benchmark(dir):
   build(dir)
   host = get_host(dir)
   server_handle = start_server(dir)
-  httpbin_handle = start_httpbin(dir)
+  delay_server_handle = start_delay_server(dir)
   try:
     if not test_fizzbuzz(dir, host):
       p("  Failed fizzbuzz")
@@ -259,7 +262,7 @@ def benchmark(dir):
     report_fizzboom(dir)
   finally:
     stop_handle("server", dir, server_handle)
-    stop_handle("httpbin", dir, httpbin_handle)
+    stop_handle("delay_server", dir, delay_server_handle)
 
 
 if len(sys.argv) > 1:
