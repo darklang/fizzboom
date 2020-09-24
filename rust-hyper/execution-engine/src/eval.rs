@@ -9,6 +9,7 @@ use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
 use std::sync::Arc;
+use chttp::ResponseExt;
 
 pub struct ExecState {
   pub caller: Caller,
@@ -73,6 +74,27 @@ fn stdlib() -> StdlibDef {
   }
 
   #[stdlibfn]
+  fn hTTPClient__get__0(url: Str) {
+    // Can't use async within another async block
+    // let result = async {
+    //   let client = hyper::Client::new();
+    //   let uri = "http://localhost:1025/delay/1".parse().unwrap();
+    //   let resp = client.get(uri).await.unwrap();
+    //   let body_bytes = hyper::body::to_bytes(resp.into_body()).await.unwrap();
+    //   let str = String::from_utf9(body_bytes.to_vec()).unwrap();
+    //
+    //   println!("Response: {}", str);
+    //   dstr(&str)
+    // };
+    // tokio::runtime::Runtime::new().unwrap().block_on(result)
+    let mut response = chttp::get("http://localhost:1025/delay/1").unwrap();
+    let text = response.text().unwrap();
+    let json : serde_json::Value = serde_json::from_str(&text).unwrap();
+    let result = json["data"].as_str().unwrap();
+    dstr(result)
+  }
+
+  #[stdlibfn]
   fn list__map__0(members: List, l: Lambda) {
     {
       let new_list =
@@ -106,6 +128,7 @@ fn stdlib() -> StdlibDef {
                  int__random64__0(),
                  int__range__0(),
                  list__map__0(),
+                 hTTPClient__get__0(),
                  int__toString__0(),
                  int__eq__0(),
                  int__mod__0(),];

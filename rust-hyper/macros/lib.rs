@@ -81,6 +81,7 @@ fn argument_pattern(scopes: Vec<&str>, name: &str, ty: &Type) -> Pat {
   };
   match type_name.to_string().as_ref() {
     "Int" => variant(scopes, "DInt", vec![name]),
+    "Str" => variant(scopes, "DStr", vec![name]),
     "List" => variant(scopes, "DList", vec![name]),
     "Lambda" => {
       variant(scopes,

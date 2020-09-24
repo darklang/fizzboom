@@ -17,6 +17,11 @@ import resource
 resource.setrlimit(resource.RLIMIT_NOFILE, (2056, resource.RLIM_INFINITY))
 
 
+def readfile(filename):
+  with open(filename, 'r') as f:
+    return f.read()
+
+
 def p(str):
   print(str, flush=True)
 
@@ -34,7 +39,8 @@ def run(dir, title, *args, **kwargs):
                             **kwargs)
     if result.returncode != 0:
       raise Exception(
-          f"Failure running {args} - see {logfilename} for details")
+          f"Failure running {args} - see {logfilename}: {readfile(logfilename)} "
+      )
     return result
 
 
@@ -71,10 +77,12 @@ def start_server(dir):
                             stdout=file)
   time.sleep(1)
   if handle.poll() != None:
-    raise (Exception(f"Error starting server: see {filename}"))
+    raise (Exception(
+        f"Error starting server: see {filename}: {readfile(filename)}"))
   time.sleep(1)
   if handle.poll() != None:
-    raise (Exception(f"Error starting server: see {filename}"))
+    raise (Exception(
+        f"Error starting server: see {filename}: {readfile(filename)}"))
   return handle
 
 
