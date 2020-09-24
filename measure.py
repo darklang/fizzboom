@@ -64,7 +64,7 @@ def install(dir):
 def start_server(dir):
   p("  Starting server")
   file = open(logfile(dir, "server"), "w")
-  handle = subprocess.Popen("./exe",
+  handle = subprocess.Popen("./run.sh",
                             cwd=dir,
                             stderr=subprocess.STDOUT,
                             stdout=file)

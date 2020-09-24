@@ -47,7 +47,7 @@ Each benchmark candidate is in its own directory, which has some known files:
 
 - `./install.sh` - installs dependencies
 - `./build.sh` - builds the server. This should use release configuration
-- `./exe` - a symlink to the compiled executable
+- `./run.sh` - runs the server
 - `PORT` - the port to use to connect to the server
 - `BROKEN` - if this file exists, skip the implementation in this directory
 
