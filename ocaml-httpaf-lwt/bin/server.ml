@@ -64,19 +64,20 @@ let main port =
 
 let () =
   let options = [
-    ("fd_passing", `fd_passing)
-  ; ("fdatasync", `fdatasync)
-  ; ("get_affinity", `get_affinity)
-  ; ("get_cpu", `get_cpu)
-  ; ("get_credentials", `get_credentials)
-  ; ("libev", `libev)
-  ; ("madvise", `madvise)
-  ; ("mincore", `mincore)
-  ; ("recv_msg", `recv_msg)
-  ; ("send_msg", `send_msg)
-  ; ("set_affinity", `set_affinity)
-  ; ("wait4", `wait4)
-  ] in
+      ("fd_passing", `fd_passing)
+    ; ("fdatasync", `fdatasync)
+    ; ("get_affinity", `get_affinity)
+    ; ("get_cpu", `get_cpu)
+    ; ("get_credentials", `get_credentials)
+    ; ("libev", `libev)
+    ; ("madvise", `madvise)
+    ; ("mincore", `mincore)
+    ; ("recv_msg", `recv_msg)
+    ; ("send_msg", `send_msg)
+    ; ("set_affinity", `set_affinity)
+    ; ("wait4", `wait4)
+    ]
+  in
   Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) ));
   let port =
     "port"
