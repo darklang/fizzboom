@@ -14,6 +14,8 @@ import io
 import signal
 import resource
 
+stored_results = []
+
 # wrk needs enough files to make 500 connections
 resource.setrlimit(resource.RLIMIT_NOFILE, (2056, resource.RLIM_INFINITY))
 
@@ -136,6 +138,21 @@ def measure_fizzboom(dir, url):
   run(dir, "measure_fizzboom", cmd)
 
 
+class Result():
+  def __init__(self, program, impl):
+    self.name = f"{impl}/{program}"
+    self.reqs_per_sec = None
+    self.errors = None
+    self.slowest = None
+    self.avg_latency = None
+
+  def print(self):
+    print(f"    Reqs/s:       {self.reqs_per_sec}")
+    print(f"    Avg:          {self.avg_latency}")
+    print(f"    Errors:       {self.errors}")
+    print(f"    Slowest:      {self.slowest}")
+
+
 def report(title, dir):
   results = {}
 
@@ -160,14 +177,15 @@ def report(title, dir):
               pass
       except Exception as e:
         print(f"Exception: {e}")
-        pass
-  errors = results.get("Socket errors", "N/A")
 
-  print(f"    Reqs/s:       {results['Requests/sec']}")
-  print(f"    Avg:       {results['Latency'][0]}")
-  print(f"    Errors:      {errors}")
-  #  print(f"    Fastest:   {results['Fastest'][]}")
-  print(f"    Slowest:   {results['Latency'][2]}")
+  result = Result(title, dir)
+  result.reqs_per_sec = results['Requests/sec']
+  result.errors = results.get("Socket errors", "N/A")
+  result.avg_latency = results['Latency'][0]
+  result.slowest = results['Latency'][2]
+  result.print()
+  global stored_results
+  stored_results.append(result)
 
 
 def report_fizzbuzz(dir):
@@ -308,4 +326,8 @@ else:
         and (os.path.exists(f + "/build.sh"))):
       benchmark(f)
 
-print("")
+# Print out the results of all the benchmarks
+for r in stored_results:
+  print("------------")
+  print(r.name)
+  r.print()
