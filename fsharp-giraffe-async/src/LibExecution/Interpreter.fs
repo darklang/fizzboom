@@ -281,7 +281,7 @@ module StdLib =
                         (function
                         | env, [ DList l; DLambda (st, [ var ], body) ] ->
                             task {
-                                let result =
+                                let! result =
                                     match l with
                                     | [] -> task { return [] }
                                     | head :: tail ->
@@ -309,8 +309,6 @@ module StdLib =
 
                                             return (lastcomp :: accum)
                                         }
-
-                                let! result = result
 
                                 return (result |> Seq.toList |> Dval.toDList |> Ok)
                             }
