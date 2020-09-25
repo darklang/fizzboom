@@ -291,6 +291,10 @@ def benchmark(dir):
     p("Skipping broken benchmark: " + dir)
     return
   p("Benchmarking " + dir)
+  # Running process prevents some builds
+  port = int(readfile(f"{dir}/port"))
+  kill_proc_on_port(port)
+
   install(dir)
   build(dir)
   host = get_host(dir)
@@ -311,6 +315,7 @@ def benchmark(dir):
     measure_fizzboom(dir, host)
     report_fizzboom(dir)
   finally:
+    kill_proc_on_port(port)
     stop_handle("server", dir, server_handle)
     stop_handle("delay_server", dir, delay_server_handle)
 
