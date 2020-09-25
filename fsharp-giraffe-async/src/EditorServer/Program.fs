@@ -10,11 +10,6 @@ open Giraffe
 open LibExecution
 open FSharp.Control.Tasks
 
-let runSync e =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        let fizzbuzz = Interpreter.runJSON e
-        text fizzbuzz next ctx
-
 let runAsync e =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         task {
@@ -22,16 +17,11 @@ let runAsync e =
             return! text fizzboom next ctx
         }
 
-let run e =
-    if Interpreter.requiresAsync e then
-        runAsync e
-    else
-        runSync e
 
 let webApp =
     choose [ GET >=> choose [
-        route "/fizzbuzz" >=> run Interpreter.fizzbuzz
-        route "/fizzboom" >=> run Interpreter.fizzboom ]]
+        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz
+        route "/fizzboom" >=> runAsync Interpreter.fizzboom ]]
 
 let configureApp (app : IApplicationBuilder) =
     app.UseGiraffe webApp
