@@ -226,7 +226,7 @@ pub fn stdlibfn(_attr: TokenStream,
            f:
              {
                Arc::new(
-                 move |state : &ExecState, args : Vec<Dval>| { {
+                 move |state : &ExecState, args : Vec<Dval<'_>>| { {
                    match args.iter().map(|v| &(**v)).collect::<Vec<_>>().as_slice() {
                      [ #argument_patterns ] => #body,
                      _ => {

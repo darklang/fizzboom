@@ -8,14 +8,14 @@ use crate::{
 use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 use chttp::ResponseExt;
 
 pub struct ExecState {
   pub caller: Caller,
 }
 
-pub fn run(state: &ExecState, body: Expr) -> Dval {
+pub fn run<'a, 'b>(state: &'b ExecState, body: Expr<'a>) -> Dval<'a> {
   let environment = Environment { functions: stdlib(), };
 
   let st = im::HashMap::new();
@@ -23,7 +23,7 @@ pub fn run(state: &ExecState, body: Expr) -> Dval {
   eval(state, body, st, &environment)
 }
 
-pub fn run_string(state: &ExecState, body: Expr) -> String {
+pub fn run_string<'a>(state: &'a ExecState, body: Expr<'a>) -> String {
   match &*run(state, body) {
     dval::Dval_::DSpecial(dval::Special::Error(_, err)) => {
       format!("Error: {}", err)
@@ -32,14 +32,14 @@ pub fn run_string(state: &ExecState, body: Expr) -> String {
   }
 }
 
-pub fn run_json(state: &ExecState, body: Expr) -> serde_json::Value {
-  (run(state, body)).to_json()
+pub fn run_json<'a, 'b>(state: &'b ExecState, body: Expr<'a>) -> String {
+  serde_json::to_string(&*run(state, body)).unwrap()
 }
 
 fn stdlib() -> StdlibDef {
   #[stdlibfn]
   fn int__toString__0(a: Int) {
-    dstr(&*format!("{}", *a))
+    dstr(Cow::Owned(format!("{}", *a)))
   }
 
   #[stdlibfn]
@@ -90,8 +90,8 @@ fn stdlib() -> StdlibDef {
     let mut response = chttp::get("http://localhost:1025/delay/1").unwrap();
     let text = response.text().unwrap();
     let json : serde_json::Value = serde_json::from_str(&text).unwrap();
-    let result = json["data"].as_str().unwrap();
-    dstr(result)
+    let result = json["data"].as_str().unwrap().to_string();
+    dstr(Cow::Owned(result))
   }
 
   #[stdlibfn]
@@ -103,7 +103,7 @@ fn stdlib() -> StdlibDef {
                  let environment =
                    Environment { functions: stdlib(), };
                  let st =
-                   l_symtable.update(l_vars[0].clone(), dv.clone());
+                   l_symtable.update(l_vars[0], dv.clone());
                  let result = eval(state,
                                    l_body.clone(),
                                    st.clone(),
@@ -136,15 +136,15 @@ fn stdlib() -> StdlibDef {
   fns.into_iter().collect()
 }
 
-fn eval(state: &ExecState,
-        expr: Expr,
-        symtable: SymTable,
-        env: &Environment)
-        -> Dval {
+fn eval<'a, 'b>(state: &'b ExecState,
+        expr: Expr<'a>,
+        symtable: SymTable<'a>,
+        env: &'b Environment)
+        -> Dval<'a> {
   use crate::{dval::*, expr::Expr_::*};
   match &*expr {
     IntLiteral { id: _, val } => dint(val.clone()),
-    StringLiteral { id: _, val } => dstr(val),
+    StringLiteral { id: _, val } => dstr(Cow::Borrowed(val)),
     Blank { id } => {
       dincomplete(&Caller::Code(state.caller.to_tlid(), *id))
     }
@@ -153,11 +153,11 @@ fn eval(state: &ExecState,
           rhs,
           body, } => {
       let rhs = eval(state, rhs.clone(), symtable.clone(), env);
-      let new_symtable = symtable.update(lhs.clone(), rhs);
+      let new_symtable = symtable.update(lhs, rhs);
       eval(state, body.clone(), new_symtable, env)
     }
     Variable { id: _, name } => {
-      symtable.get(name).expect("variable does not exist").clone()
+      symtable.get(*name).expect("variable does not exist").clone()
     }
     Lambda { id: _,
              params,

@@ -10,7 +10,7 @@ use std::{convert::Infallible, net::SocketAddr};
 
 use execution_engine::{self, eval, expr::*, ivec, runtime};
 
-fn fizzboom() -> Expr {
+fn fizzboom<'a>() -> Expr<'a> {
   elet("range",
        esfn("Int", "range", 0, ivec![eint(1), eint(100),]),
        esfn("List",
@@ -53,7 +53,7 @@ fn fizzboom() -> Expr {
                                            0,
                                            ivec![evar("i")])))))]))
 }
-fn fizzbuzz() -> Expr {
+fn fizzbuzz<'a>() -> Expr<'a> {
   elet("range",
        esfn("Int", "range", 0, ivec![eint(1), eint(100),]),
        esfn("List",
@@ -97,13 +97,13 @@ fn fizzbuzz() -> Expr {
                                            ivec![evar("i")])))))]))
 }
 
-async fn run_program(program: Expr)
+async fn run_program<'a>(program: Expr<'a>)
                      -> String {
   let tlid = runtime::TLID::TLID(7);
   let state =
     eval::ExecState { caller: runtime::Caller::Toplevel(tlid), };
-  let result = eval::run_json(&state, program);
-  result.to_string()
+  
+  eval::run_json(&state, program)
 }
 
 async fn handle(req: Request<Body>)
@@ -112,7 +112,9 @@ async fn handle(req: Request<Body>)
 
   match (req.method(), req.uri().path()) {
       (&Method::GET, "/fizzbuzz") => {
-          *response.body_mut() = Body::from(run_program(fizzbuzz()).await);
+        let r = fizzbuzz();
+        let f = run_program(r).await;
+          *response.body_mut() = Body::from(f);
       },
       (&Method::GET, "/fizzboom") => {
           *response.body_mut() = Body::from(run_program(fizzboom()).await);

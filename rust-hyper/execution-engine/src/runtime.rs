@@ -36,9 +36,9 @@ impl Caller {
 }
 
 pub type FuncSig =
-  Arc<dyn Fn(&crate::eval::ExecState, Vec<Dval>) -> Dval>;
+  Arc<dyn for<'s, 'a> Fn(&'s crate::eval::ExecState, Vec<Dval<'a>>) -> Dval<'a>>;
 
-pub type SymTable = im::HashMap<String, Dval>;
+pub type SymTable<'a> = im::HashMap<&'a str, Dval<'a>>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Copy)]
 pub enum TLID {
