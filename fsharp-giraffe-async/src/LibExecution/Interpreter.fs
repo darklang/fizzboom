@@ -197,6 +197,38 @@ let fizzboom: Expr =
                                     EString "fizz",
                                     sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
 
+let map_s (list: List<'a>) (f: ('a -> Task<'b>)): Task<List<'b>> =
+    task {
+        let! result =
+            match list with
+            | [] -> task { return [] }
+            | head :: tail ->
+                task {
+                    let firstComp =
+                        task {
+                            let! result = f head
+                            return ([], result)
+                        }
+
+                    let! ((accum, lastcomp): (List<'b> * 'b)) =
+                        List.fold (fun (prevcomp: Task<List<'b> * 'b>) (arg: 'a) ->
+                            task {
+                                // Ensure the previous computation is done first
+                                let! ((accum, prev): (List<'b> * 'b)) = prevcomp
+                                let accum = prev :: accum
+
+                                let! result = f arg
+
+                                return (accum, result)
+                            }) firstComp tail
+
+                    return (lastcomp :: accum)
+                }
+
+        return (result |> Seq.toList)
+    }
+
+
 let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Task<Dval> =
     let tryFindFn desc = env.functions.TryFind(desc)
 
@@ -213,8 +245,7 @@ let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Task<Dval> =
         (match tryFindFn desc with
          | Some fn ->
              task {
-                 let args = (List.map (evalAsync env st) args)
-                 let! args = Task.WhenAll(args)
+                 let! args = map_s args (fun e -> evalAsync env st e)
                  return! call_fn_async env fn (Seq.toList args)
              }
          | None -> task { return (err (NotAFunction desc)) })
@@ -282,36 +313,15 @@ module StdLib =
                         | env, [ DList l; DLambda (st, [ var ], body) ] ->
                             task {
                                 let! result =
-                                    match l with
-                                    | [] -> task { return [] }
-                                    | head :: tail ->
+                                    map_s l (fun dv ->
                                         task {
-                                            let firstComp =
-                                                task {
-                                                    let st = st.Add(var, head)
-                                                    let! result = evalAsync env st body
-                                                    return ([], result)
-                                                }
+                                            let st = st.Add(var, dv)
+                                            return! evalAsync env st body
+                                        })
 
-                                            let! ((accum, lastcomp): (List<Dval> * Dval)) =
-                                                List.fold (fun (prevcomp: Task<List<Dval> * Dval>) (dv: Dval) ->
-                                                    task {
-                                                        // Ensure the previous computation is done first
-                                                        let! ((accum, prev): (List<Dval> * Dval)) = prevcomp
-                                                        let accum = prev :: accum
-
-                                                        let st = st.Add(var, dv)
-
-                                                        let! result = evalAsync env st body
-
-                                                        return (accum, result)
-                                                    }) firstComp tail
-
-                                            return (lastcomp :: accum)
-                                        }
-
-                                return (result |> Seq.toList |> Dval.toDList |> Ok)
+                                return (result |> Dval.toDList |> Ok)
                             }
+
                         | _ -> task { return Error() }) }
               Environment.Sync
                   { name = (FnDesc.stdFnDesc "Int" "%" 0)
