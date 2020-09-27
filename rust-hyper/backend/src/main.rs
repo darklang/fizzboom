@@ -126,7 +126,7 @@ async fn handle(req: Request<Body>)
   Ok(response)
 }
 
-#[tokio::main]
+#[tokio::main(threaded_scheduler)]
 async fn main() {
   let port = std::fs::read_to_string("port").unwrap()
                                             .trim()
