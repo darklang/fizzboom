@@ -245,7 +245,7 @@ let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Task<Dval> =
         (match tryFindFn desc with
          | Some fn ->
              task {
-                 let! args = map_s args (fun e -> evalAsync env st e)
+                 let! args = map_s args (evalAsync env st)
                  return! call_fn_async env fn (Seq.toList args)
              }
          | None -> task { return (err (NotAFunction desc)) })
@@ -314,10 +314,8 @@ module StdLib =
                             task {
                                 let! result =
                                     map_s l (fun dv ->
-                                        task {
-                                            let st = st.Add(var, dv)
-                                            return! evalAsync env st body
-                                        })
+                                        let st = st.Add(var, dv)
+                                        evalAsync env st body)
 
                                 return (result |> Dval.toDList |> Ok)
                             }
