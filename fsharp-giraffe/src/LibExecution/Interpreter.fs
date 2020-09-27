@@ -65,7 +65,7 @@ type Dval =
 
         | DBool b -> JsonValue.Boolean b
         | DLambda _ -> JsonValue.Null
-        | DSpecial _ -> JsonValue.Null
+        | DSpecial (DError (e)) -> JsonValue.Record [| "error", JsonValue.String(e.ToString()) |]
 
     static member toDList(list: List<Dval>): Dval =
         List.tryFind (fun (dv: Dval) -> dv.isSpecial) list
