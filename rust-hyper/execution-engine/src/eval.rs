@@ -36,7 +36,7 @@ pub fn run_json<'a, 'b>(state: &'b ExecState, body: &'a Expr<'a>) -> String {
   serde_json::to_string(&*run(state, body)).unwrap()
 }
 
-fn stdlib() -> StdlibDef {
+fn stdlib() -> StdlibDef<'static> {
   #[stdlibfn]
   fn int__toString__0(a: Int) {
     dstr(Cow::Owned(format!("{}", *a)))

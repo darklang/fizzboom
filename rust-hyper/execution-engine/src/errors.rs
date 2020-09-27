@@ -6,8 +6,8 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum Error<'a> {
-  MissingFunction(runtime::FunctionDesc_),
-  IncorrectArguments(runtime::FunctionDesc_, Vec<Dval<'a>>),
+  MissingFunction(runtime::FunctionDesc_<'a>),
+  IncorrectArguments(&'a runtime::FunctionDesc_<'a>, Vec<Dval<'a>>),
   InvalidType(Dval<'a>, DType<'a>),
 }
 

@@ -13,7 +13,7 @@ pub enum Expr<'a> {
   },
   FnCall {
     id:   ID,
-    name: FunctionDesc_,
+    name: FunctionDesc_<'a>,
     args: Vec<Expr<'a>>,
   },
   Lambda {
@@ -24,7 +24,7 @@ pub enum Expr<'a> {
   BinOp {
     id:  ID,
     lhs: Box<Expr<'a>>,
-    op:  FunctionDesc_,
+    op:  FunctionDesc_<'a>,
     rhs: Box<Expr<'a>>,
   },
   If {
@@ -97,10 +97,10 @@ pub fn ebinop<'a>(lhs: Expr<'a>,
   BinOp { id: gid(),
                    lhs: Box::new(lhs),
                    op:
-                     FunctionDesc_::FunctionDesc("dark".to_string(),
-                                                 "stdlib".to_string(),
-                                                 module.to_string(),
-                                                 op.to_string(),
+                     FunctionDesc_::FunctionDesc("dark",
+                                                 "stdlib",
+                                                 module,
+                                                 op,
                                                  version),
                    rhs: Box::new(rhs) }
 }
@@ -118,10 +118,10 @@ pub fn efn<'a>(owner: &'a str,
            -> Expr<'a> {
   FnCall { id: gid(),
                     name:
-                      FunctionDesc_::FunctionDesc(owner.to_string(),
-                                                  package.to_string(),
-                                                  module.to_string(),
-                                                  name.to_string(),
+                      FunctionDesc_::FunctionDesc(owner,
+                                                  package,
+                                                  module,
+                                                  name,
                                                   version),
                     args }
 }

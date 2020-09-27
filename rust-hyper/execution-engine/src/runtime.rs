@@ -3,11 +3,11 @@ use im_rc as im;
 use std::fmt;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum FunctionDesc_ {
-  FunctionDesc(String, String, String, String, u32),
+pub enum FunctionDesc_<'a> {
+  FunctionDesc(&'a str, &'a str, &'a str, &'a str, u32),
 }
 
-impl fmt::Display for FunctionDesc_ {
+impl<'a> fmt::Display for FunctionDesc_<'a> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let FunctionDesc_::FunctionDesc(owner,
                                     package,
@@ -68,9 +68,9 @@ impl fmt::Debug for StdlibFunction {
   }
 }
 
-pub type StdlibDef =
-  std::collections::HashMap<FunctionDesc_, StdlibFunction>;
+pub type StdlibDef<'a> =
+  std::collections::HashMap<&'a FunctionDesc_<'a>, StdlibFunction>;
 
-pub struct Environment {
-  pub functions: StdlibDef,
+pub struct Environment<'a> {
+  pub functions: StdlibDef<'a>,
 }
