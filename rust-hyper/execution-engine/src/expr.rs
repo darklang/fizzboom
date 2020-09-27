@@ -1,5 +1,5 @@
 use im_rc as im;
-use std::sync::Arc;
+use std::{sync::Arc, borrow::Cow};
 
 use crate::runtime::*;
 use ramp;
@@ -15,11 +15,11 @@ pub enum Expr_<'a> {
   FnCall {
     id:   ID,
     name: FunctionDesc_,
-    args: im::Vector<Expr<'a>>,
+    args: Cow<'a, [Expr<'a>]>,
   },
   Lambda {
     id:     ID,
-    params: im::Vector<&'a str>,
+    params: Cow<'a, [&'a str]>,
     body:   Expr<'a>,
   },
   BinOp {
@@ -52,8 +52,6 @@ pub enum Expr_<'a> {
 }
 
 pub type Expr<'a> = Arc<Expr_<'a>>;
-unsafe impl<'a> Send for Expr_<'a> {}
-unsafe impl<'a> Sync for Expr_<'a> {}
 
 use Expr_::*;
 
@@ -119,7 +117,7 @@ pub fn efn<'a>(owner: &'a str,
            module: &'a str,
            name: &'a str,
            version: u32,
-           args: im::Vector<Expr<'a>>)
+           args: Cow<'a, [Expr<'a>]>)
            -> Expr<'a> {
   Arc::new(FnCall { id: gid(),
                     name:
@@ -135,7 +133,7 @@ pub fn efn<'a>(owner: &'a str,
 pub fn esfn<'a>(module: &'a str,
             name: &'a str,
             version: u32,
-            args: im::Vector<Expr<'a>>)
+            args: Cow<'a, [Expr<'a>]>)
             -> Expr<'a> {
   efn("dark", "stdlib", module, name, version, args)
 }

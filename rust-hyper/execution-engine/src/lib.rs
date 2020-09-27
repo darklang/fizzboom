@@ -8,7 +8,7 @@ macro_rules! ivec {
       im_rc::Vector::new()
   );
   ($($x:expr),+ $(,)?) => (
-      im_rc::Vector::from(<[_]>::into_vec(box [$($x),+]))
+      std::borrow::Cow::Owned(im_rc::Vector::from(<[_]>::into_vec(box [$($x),+])))
   );
 }
 
