@@ -15,7 +15,7 @@ pub struct ExecState {
   pub caller: Caller,
 }
 
-pub fn run<'a, 'b>(state: &'b ExecState, body: Expr<'a>) -> Dval<'a> {
+pub fn run<'a, 'b>(state: &'b ExecState, body: &'a  Expr<'a>) -> Dval<'a> {
   let environment = Environment { functions: stdlib(), };
 
   let st = im::HashMap::new();
@@ -23,7 +23,7 @@ pub fn run<'a, 'b>(state: &'b ExecState, body: Expr<'a>) -> Dval<'a> {
   eval(state, body, st, &environment)
 }
 
-pub fn run_string<'a>(state: &'a ExecState, body: Expr<'a>) -> String {
+pub fn run_string<'a>(state: &'a ExecState, body: &'a Expr<'a>) -> String {
   match &*run(state, body) {
     dval::Dval_::DSpecial(dval::Special::Error(_, err)) => {
       format!("Error: {}", err)
@@ -32,7 +32,7 @@ pub fn run_string<'a>(state: &'a ExecState, body: Expr<'a>) -> String {
   }
 }
 
-pub fn run_json<'a, 'b>(state: &'b ExecState, body: Expr<'a>) -> String {
+pub fn run_json<'a, 'b>(state: &'b ExecState, body: &'a Expr<'a>) -> String {
   serde_json::to_string(&*run(state, body)).unwrap()
 }
 
@@ -137,11 +137,11 @@ fn stdlib() -> StdlibDef {
 }
 
 fn eval<'a, 'b>(state: &'b ExecState,
-        expr: Expr<'a>,
+        expr: &'a Expr<'a>,
         symtable: SymTable<'a>,
         env: &'b Environment)
         -> Dval<'a> {
-  use crate::{dval::*, expr::Expr_::*};
+  use crate::{dval::*, expr::Expr::*};
   match &*expr {
     IntLiteral { id: _, val } => dint(val.clone()),
     StringLiteral { id: _, val } => dstr(Cow::Borrowed(val)),
@@ -152,7 +152,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
           lhs,
           rhs,
           body, } => {
-      let rhs = eval(state, rhs.clone(), symtable.clone(), env);
+      let rhs = eval(state, rhs, symtable.clone(), env);
       let new_symtable = symtable.update(lhs, rhs);
       eval(state, body.clone(), new_symtable, env)
     }
@@ -162,7 +162,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
     Lambda { id: _,
              params,
              body, } => {
-      Arc::new(DLambda(symtable, params.clone(), body.clone()))
+      Arc::new(DLambda(symtable, params.clone(), body))
     }
     If { id,
          cond,

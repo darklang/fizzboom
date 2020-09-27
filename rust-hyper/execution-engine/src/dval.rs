@@ -21,7 +21,7 @@ pub enum Dval_<'a> {
   DInt(ramp::Int),
   DStr(Cow<'a, str>),
   DList(im::Vector<Dval<'a>>),
-  DLambda(runtime::SymTable<'a>, Cow<'a, [&'a str]>, expr::Expr<'a>),
+  DLambda(runtime::SymTable<'a>, Cow<'a, [&'a str]>, &'a expr::Expr<'a>),
   DSpecial(Special<'a>),
 }
 

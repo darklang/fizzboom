@@ -97,7 +97,7 @@ fn fizzbuzz<'a>() -> Expr<'a> {
                                            vec![evar("i")].into())))))].into()))
 }
 
-async fn run_program<'a>(program: Expr<'a>)
+async fn run_program<'a>(program: &'a Expr<'a>)
                      -> String {
   let tlid = runtime::TLID::TLID(7);
   let state =
@@ -113,11 +113,11 @@ async fn handle(req: Request<Body>)
   match (req.method(), req.uri().path()) {
       (&Method::GET, "/fizzbuzz") => {
         let r = fizzbuzz();
-        let f = run_program(r).await;
+        let f = run_program(&r).await;
           *response.body_mut() = Body::from(f);
       },
       (&Method::GET, "/fizzboom") => {
-          *response.body_mut() = Body::from(run_program(fizzboom()).await);
+          *response.body_mut() = Body::from(run_program(&fizzboom()).await);
       },
       _ => {
           *response.status_mut() = StatusCode::NOT_FOUND;
