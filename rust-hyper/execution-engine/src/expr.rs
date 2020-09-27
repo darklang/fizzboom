@@ -1,4 +1,3 @@
-use im_rc as im;
 use std::borrow::Cow;
 
 use crate::runtime::*;
@@ -76,11 +75,9 @@ pub fn evar<'a>(name: &'a str) -> Expr<'a> {
                       name: name, }
 }
 
-pub fn elambda<'a>(names: im::Vector<&'a str>, body: Expr<'a>) -> Expr<'a> {
+pub fn elambda<'a>(names: Cow<'a, [&'a str]>, body: Expr<'a>) -> Expr<'a> {
   Lambda { id: gid(),
-                    params: names.iter()
-                                 .map(|&n| n)
-                                 .collect(),
+                    params: names,
                     body: Box::new(body) }
 }
 
