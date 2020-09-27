@@ -8,7 +8,7 @@ use crate::{
 use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
-use std::{sync::Arc, borrow::Cow};
+use std::{borrow::Cow, rc::Rc};
 use chttp::ResponseExt;
 
 pub struct ExecState {
@@ -162,7 +162,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
     Lambda { id: _,
              params,
              body, } => {
-      Arc::new(DLambda(symtable, params.clone(), body))
+      Rc::new(DLambda(symtable, params.clone(), body))
     }
     If { id,
          cond,

@@ -1,8 +1,9 @@
 use crate::expr;
 use im_rc as im;
-use std::{fmt, sync::Arc};
+use std::{fmt};
 use std::borrow::Cow;
 use serde::ser::{Serialize, SerializeSeq};
+use std::rc::Rc;
 
 // use crate::{errors, expr};
 use crate::{errors, runtime};
@@ -59,11 +60,11 @@ impl<'a> Dval_<'a> {
   }
 }
 
-pub type Dval<'a> = Arc<Dval_<'a>>;
+pub type Dval<'a> = Rc<Dval_<'a>>;
 
 #[derive(Debug)]
 pub enum DType<'a> {
-  TList(Arc<DType<'a>>),
+  TList(Rc<DType<'a>>),
   TLambda,
   TBool,
   NamedType(&'a str),
@@ -86,34 +87,34 @@ impl<'a> fmt::Display for DType<'a> {
 pub fn derror<'a>(caller: &runtime::Caller,
               error: errors::Error<'a>)
               -> Dval<'a> {
-  Arc::new(Dval_::DSpecial(Special::Error(*caller, error)))
+  Rc::new(Dval_::DSpecial(Special::Error(*caller, error)))
 }
 
 pub fn dcode_error<'a>(caller: &runtime::Caller,
                    id: runtime::ID,
                    error: errors::Error<'a>)
                    -> Dval<'a> {
-  Arc::new(Dval_::DSpecial(Special::Error(
+  Rc::new(Dval_::DSpecial(Special::Error(
         runtime::Caller::Code(caller.to_tlid(), id),
         error,
     )))
 }
 
 pub fn dincomplete<'a>(caller: &runtime::Caller) -> Dval<'a> {
-  Arc::new(Dval_::DSpecial(Special::Incomplete(*caller)))
+  Rc::new(Dval_::DSpecial(Special::Incomplete(*caller)))
 }
 
 pub fn dbool<'a>(val: bool) -> Dval<'a> {
-  Arc::new(Dval_::DBool(val))
+  Rc::new(Dval_::DBool(val))
 }
 pub fn dint<'a>(i: ramp::Int) -> Dval<'a> {
-  Arc::new(Dval_::DInt(i))
+  Rc::new(Dval_::DInt(i))
 }
 
 pub fn dstr<'a>(val: Cow<'a, str>) -> Dval<'a> {
-  Arc::new(Dval_::DStr(val))
+  Rc::new(Dval_::DStr(val))
 }
 
 pub fn dlist<'a>(l: im::Vector<Dval<'a>>) -> Dval<'a> {
-  Arc::new(Dval_::DList(l))
+  Rc::new(Dval_::DList(l))
 }
