@@ -303,17 +303,15 @@ def benchmark(dir):
   try:
     if not test_fizzbuzz(dir, host):
       p("  Failed fizzbuzz")
-      return
-    if not test_fizzboom(dir, host):
+    elif not test_fizzboom(dir, host):
       p("  Failed fizzboom")
-      return
+    else:
+      warmup_fizzbuzz(dir, host)
+      measure_fizzbuzz(dir, host)
+      report_fizzbuzz(dir)
 
-    warmup_fizzbuzz(dir, host)
-    measure_fizzbuzz(dir, host)
-    report_fizzbuzz(dir)
-
-    measure_fizzboom(dir, host)
-    report_fizzboom(dir)
+      measure_fizzboom(dir, host)
+      report_fizzboom(dir)
   finally:
     kill_proc_on_port(port)
     stop_handle("server", dir, server_handle)
