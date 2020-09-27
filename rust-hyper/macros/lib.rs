@@ -212,28 +212,27 @@ pub fn stdlibfn(_attr: TokenStream,
 
 
     #[allow(non_snake_case)]
-    fn #fn_name() -> (FunctionDesc_, StdlibFunction) {
-        let fn_name = FunctionDesc_::FunctionDesc(
-            #owner.to_string(),
-            #package.to_string(),
-            #module.to_string(),
-            #function.to_string(),
+    fn #fn_name() -> (&'static FunctionDesc_<'static>, StdlibFunction) {
+        static fn_name: &'static FunctionDesc_<'static> = &FunctionDesc_::FunctionDesc(
+            #owner,
+            #package,
+            #module,
+            #function,
             #version,
         );
-        let fn_name2 = fn_name.clone();
           (fn_name,
          StdlibFunction {
            f:
              {
-               Arc::new(
-                 move |state : &ExecState, args : Vec<Dval>| { {
+               Box::new(
+                 move |state : &ExecState, args : Vec<Dval<'_>>| { {
                    match args.iter().map(|v| &(**v)).collect::<Vec<_>>().as_slice() {
                      [ #argument_patterns ] => #body,
                      _ => {
                        for arg in args.clone() {
                          if (arg).is_special() { return arg.clone ()}
                        }
-                       Arc::new(Dval_::DSpecial((Special::Error(state.caller, IncorrectArguments(fn_name2.clone(), args)))))
+                       std::rc::Rc::new(Dval_::DSpecial((Special::Error(state.caller, IncorrectArguments(fn_name, args)))))
                      }}}})},
                     })}
 

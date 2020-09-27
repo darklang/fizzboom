@@ -8,16 +8,16 @@ use hyper::{
 };
 use std::{convert::Infallible, net::SocketAddr};
 
-use execution_engine::{self, eval, expr::*, ivec, runtime};
+use execution_engine::{self, eval, expr::*, runtime};
 
-fn fizzboom() -> Expr {
+fn fizzboom<'a>() -> Expr<'a> {
   elet("range",
-       esfn("Int", "range", 0, ivec![eint(1), eint(100),]),
+       esfn("Int", "range", 0, vec![eint(1), eint(100),].into()),
        esfn("List",
             "map",
             0,
-            ivec![(evar("range")),
-                  elambda(ivec!["i"],
+            vec![(evar("range")),
+                  elambda(vec!["i"].into(),
                           eif(ebinop(ebinop(evar("i"),
                                             "Int",
                                             "%",
@@ -27,7 +27,7 @@ fn fizzboom() -> Expr {
                                      "==",
                                      0,
                                      eint(0)),
-                              esfn("HTTPClient", "get", 0, ivec![estr("http://localhost:1025/delay/1")]),
+                              esfn("HTTPClient", "get", 0, vec![estr("http://localhost:1025/delay/1")].into()),
                               eif(ebinop(ebinop(evar("i"),
                                                 "Int",
                                                 "%",
@@ -51,16 +51,16 @@ fn fizzboom() -> Expr {
                                       esfn("Int",
                                            "toString",
                                            0,
-                                           ivec![evar("i")])))))]))
+                                           vec![evar("i")].into())))))].into()))
 }
-fn fizzbuzz() -> Expr {
+fn fizzbuzz<'a>() -> Expr<'a> {
   elet("range",
-       esfn("Int", "range", 0, ivec![eint(1), eint(100),]),
+       esfn("Int", "range", 0, vec![eint(1), eint(100),].into()),
        esfn("List",
             "map",
             0,
-            ivec![(evar("range")),
-                  elambda(ivec!["i"],
+            vec![(evar("range")),
+                  elambda(vec!["i"].into(),
                           eif(ebinop(ebinop(evar("i"),
                                             "Int",
                                             "%",
@@ -94,16 +94,16 @@ fn fizzbuzz() -> Expr {
                                       esfn("Int",
                                            "toString",
                                            0,
-                                           ivec![evar("i")])))))]))
+                                           vec![evar("i")].into())))))].into()))
 }
 
-async fn run_program(program: Expr)
+async fn run_program<'a>(program: &'a Expr<'a>)
                      -> String {
   let tlid = runtime::TLID::TLID(7);
   let state =
     eval::ExecState { caller: runtime::Caller::Toplevel(tlid), };
-  let result = eval::run_json(&state, program);
-  result.to_string()
+  
+  eval::run_json(&state, program)
 }
 
 async fn handle(req: Request<Body>)
@@ -112,10 +112,12 @@ async fn handle(req: Request<Body>)
 
   match (req.method(), req.uri().path()) {
       (&Method::GET, "/fizzbuzz") => {
-          *response.body_mut() = Body::from(run_program(fizzbuzz()).await);
+        let r = fizzbuzz();
+        let f = run_program(&r).await;
+          *response.body_mut() = Body::from(f);
       },
       (&Method::GET, "/fizzboom") => {
-          *response.body_mut() = Body::from(run_program(fizzboom()).await);
+          *response.body_mut() = Body::from(run_program(&fizzboom()).await);
       },
       _ => {
           *response.status_mut() = StatusCode::NOT_FOUND;
@@ -124,7 +126,7 @@ async fn handle(req: Request<Body>)
   Ok(response)
 }
 
-#[tokio::main]
+#[tokio::main(threaded_scheduler)]
 async fn main() {
   let port = std::fs::read_to_string("port").unwrap()
                                             .trim()

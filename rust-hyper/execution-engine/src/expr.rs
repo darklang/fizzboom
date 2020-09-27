@@ -1,42 +1,41 @@
-use im_rc as im;
-use std::sync::Arc;
+use std::borrow::Cow;
 
 use crate::runtime::*;
 use ramp;
 
 #[derive(Debug)]
-pub enum Expr_ {
+pub enum Expr<'a> {
   Let {
     id:   ID,
-    lhs:  String,
-    rhs:  Expr,
-    body: Expr,
+    lhs:  &'a str,
+    rhs:  Box<Expr<'a>>,
+    body: Box<Expr<'a>>,
   },
   FnCall {
     id:   ID,
-    name: FunctionDesc_,
-    args: im::Vector<Expr>,
+    name: FunctionDesc_<'a>,
+    args: Vec<Expr<'a>>,
   },
   Lambda {
     id:     ID,
-    params: im::Vector<String>,
-    body:   Expr,
+    params: Cow<'a, [&'a str]>,
+    body:   Box<Expr<'a>>,
   },
   BinOp {
     id:  ID,
-    lhs: Expr,
-    op:  FunctionDesc_,
-    rhs: Expr,
+    lhs: Box<Expr<'a>>,
+    op:  FunctionDesc_<'a>,
+    rhs: Box<Expr<'a>>,
   },
   If {
     id:        ID,
-    cond:      Expr,
-    then_body: Expr,
-    else_body: Expr,
+    cond:      Box<Expr<'a>>,
+    then_body: Box<Expr<'a>>,
+    else_body: Box<Expr<'a>>,
   },
   Variable {
     id:   ID,
-    name: String,
+    name: &'a str,
   },
   IntLiteral {
     id:  ID,
@@ -44,98 +43,94 @@ pub enum Expr_ {
   },
   StringLiteral {
     id:  ID,
-    val: String,
+    val: &'a str,
   },
   Blank {
     id: ID,
   },
 }
 
-pub type Expr = Arc<Expr_>;
-unsafe impl Send for Expr_ {}
-unsafe impl Sync for Expr_ {}
+// pub type Expr<'a> = Arc<Expr_<'a>>;
 
-use Expr_::*;
+use Expr::*;
 
-pub fn elet(lhs: &str, rhs: Expr, body: Expr) -> Expr {
-  Arc::new(Let { id: gid(),
-                 lhs: lhs.to_string(),
-                 rhs,
-                 body })
+pub fn elet<'a>(lhs: &'a str, rhs: Expr<'a>, body: Expr<'a>) -> Expr<'a> {
+  Let { id: gid(),
+                 lhs,
+                 rhs: Box::new(rhs),
+                 body: Box::new(body) }
 }
 
-pub fn estr(val: &str) -> Expr {
-  Arc::new(StringLiteral { id:  gid(),
-                           val: val.to_string(), })
+pub fn estr<'a>(val: &'a str) -> Expr<'a> {
+  StringLiteral { id:  gid(),
+                           val: val, }
 }
-pub fn eint(val: i64) -> Expr {
-  Arc::new(IntLiteral { id:  gid(),
-                        val: ramp::Int::from(val), })
-}
-
-pub fn evar(name: &str) -> Expr {
-  Arc::new(Variable { id:   gid(),
-                      name: name.to_string(), })
+pub fn eint<'a>(val: i64) -> Expr<'a> {
+  IntLiteral { id:  gid(),
+                        val: ramp::Int::from(val), }
 }
 
-pub fn elambda(names: im::Vector<&str>, body: Expr) -> Expr {
-  Arc::new(Lambda { id: gid(),
-                    params: names.iter()
-                                 .map(|n| n.to_string())
-                                 .collect(),
-                    body })
+pub fn evar<'a>(name: &'a str) -> Expr<'a> {
+  Variable { id:   gid(),
+                      name: name, }
 }
 
-pub fn eif(cond: Expr, then_body: Expr, else_body: Expr) -> Expr {
-  Arc::new(If { id: gid(),
-                cond,
-                then_body,
-                else_body })
+pub fn elambda<'a>(names: Cow<'a, [&'a str]>, body: Expr<'a>) -> Expr<'a> {
+  Lambda { id: gid(),
+                    params: names,
+                    body: Box::new(body) }
 }
 
-pub fn ebinop(lhs: Expr,
-              module: &str,
-              op: &str,
+pub fn eif<'a>(cond: Expr<'a>, then_body: Expr<'a>, else_body: Expr<'a>) -> Expr<'a> {
+  If { id: gid(),
+                cond: Box::new(cond),
+                then_body: Box::new(then_body),
+                else_body: Box::new(else_body) }
+}
+
+pub fn ebinop<'a>(lhs: Expr<'a>,
+              module: &'a str,
+              op: &'a str,
               version: u32,
-              rhs: Expr)
-              -> Expr {
-  Arc::new(BinOp { id: gid(),
-                   lhs,
+              rhs: Expr<'a>)
+              -> Expr<'a> {
+  BinOp { id: gid(),
+                   lhs: Box::new(lhs),
                    op:
-                     FunctionDesc_::FunctionDesc("dark".to_string(),
-                                                 "stdlib".to_string(),
-                                                 module.to_string(),
-                                                 op.to_string(),
+                     FunctionDesc_::FunctionDesc("dark",
+                                                 "stdlib",
+                                                 module,
+                                                 op,
                                                  version),
-                   rhs })
+                   rhs: Box::new(rhs) }
 }
 
-pub fn eblank() -> Expr {
-  Arc::new(Blank { id: gid() })
+pub fn eblank<'a>() -> Expr<'a> {
+  Blank { id: gid() }
 }
 
-pub fn efn(owner: &str,
-           package: &str,
-           module: &str,
-           name: &str,
+pub fn efn<'a>(owner: &'a str,
+           package: &'a str,
+           module: &'a str,
+           name: &'a str,
            version: u32,
-           args: im::Vector<Expr>)
-           -> Expr {
-  Arc::new(FnCall { id: gid(),
+           args: Vec<Expr<'a>>)
+           -> Expr<'a> {
+  FnCall { id: gid(),
                     name:
-                      FunctionDesc_::FunctionDesc(owner.to_string(),
-                                                  package.to_string(),
-                                                  module.to_string(),
-                                                  name.to_string(),
+                      FunctionDesc_::FunctionDesc(owner,
+                                                  package,
+                                                  module,
+                                                  name,
                                                   version),
-                    args })
+                    args }
 }
 
 // Stdlib function
-pub fn esfn(module: &str,
-            name: &str,
+pub fn esfn<'a>(module: &'a str,
+            name: &'a str,
             version: u32,
-            args: im::Vector<Expr>)
-            -> Expr {
+            args: Vec<Expr<'a>>)
+            -> Expr<'a> {
   efn("dark", "stdlib", module, name, version, args)
 }

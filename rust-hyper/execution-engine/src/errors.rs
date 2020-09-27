@@ -5,13 +5,13 @@ use crate::{
 use std::fmt;
 
 #[derive(Debug)]
-pub enum Error {
-  MissingFunction(runtime::FunctionDesc_),
-  IncorrectArguments(runtime::FunctionDesc_, Vec<Dval>),
-  InvalidType(Dval, DType),
+pub enum Error<'a> {
+  MissingFunction(runtime::FunctionDesc_<'a>),
+  IncorrectArguments(&'a runtime::FunctionDesc_<'a>, Vec<Dval<'a>>),
+  InvalidType(Dval<'a>, DType<'a>),
 }
 
-impl fmt::Display for Error {
+impl<'a> fmt::Display for Error<'a> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Error::MissingFunction(fun) => {
@@ -27,8 +27,9 @@ impl fmt::Display for Error {
   }
 }
 
-impl std::error::Error for Error {
+impl<'a> std::error::Error for Error<'a> {
   fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    Some(self)
+    // Some(self)
+    None
   }
 }
