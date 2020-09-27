@@ -222,7 +222,7 @@ let map_s (list: List<'a>) (f: ('a -> Task<'b>)): Task<List<'b>> =
                                 return (accum, result)
                             }) firstComp tail
 
-                    return (lastcomp :: accum)
+                    return List.rev (lastcomp :: accum)
                 }
 
         return (result |> Seq.toList)
