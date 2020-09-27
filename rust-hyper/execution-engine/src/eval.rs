@@ -154,7 +154,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
           body, } => {
       let rhs = eval(state, rhs, symtable.clone(), env);
       let new_symtable = symtable.update(lhs, rhs);
-      eval(state, body.clone(), new_symtable, env)
+      eval(state, body, new_symtable, env)
     }
     Variable { id: _, name } => {
       symtable.get(*name).expect("variable does not exist").clone()
@@ -168,12 +168,12 @@ fn eval<'a, 'b>(state: &'b ExecState,
          cond,
          then_body,
          else_body, } => {
-      let result = eval(state, cond.clone(), symtable.clone(), env);
+      let result = eval(state, cond, symtable.clone(), env);
       match *result {
         DBool(true) => {
-          eval(state, then_body.clone(), symtable.clone(), env)
+          eval(state, then_body, symtable.clone(), env)
         }
-        DBool(false) => eval(state, else_body.clone(), symtable, env),
+        DBool(false) => eval(state, else_body, symtable, env),
         _ => dcode_error(&state.caller,
                          *id,
                          InvalidType(result, dval::DType::TBool)),
@@ -185,9 +185,9 @@ fn eval<'a, 'b>(state: &'b ExecState,
       match fn_def {
         Option::Some(v) => {
           let lhs =
-            eval(state, lhs.clone(), symtable.clone(), env.clone());
+            eval(state, lhs, symtable.clone(), env.clone());
           let rhs =
-            eval(state, rhs.clone(), symtable.clone(), env.clone());
+            eval(state, rhs, symtable.clone(), env.clone());
           let state = ExecState { caller:
                                     Caller::Code(state.caller
                                                       .to_tlid(),
@@ -210,7 +210,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
           let args: Vec<Dval> =
             args.into_iter()
                 .map(|arg| {
-                  eval(&state, arg.clone(), symtable.clone(), env)
+                  eval(&state, arg, symtable.clone(), env)
                 })
                 .collect();
           let state = ExecState { caller:
