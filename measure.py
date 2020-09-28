@@ -29,9 +29,19 @@ def readfile(filename):
 def kill_proc_on_port(port):
   proc = subprocess.run(["lsof", "-t", "-i", f":{port}"], capture_output=True)
   if proc.returncode == 0:
-    pid = int(proc.stdout.strip())
-    os.kill(pid, signal.SIGTERM)
-    os.kill(pid, signal.SIGKILL)
+    for pid in proc.stdout.decode('utf-8').strip().split("\n"):
+      pid = int(pid.strip())
+      os.kill(pid, signal.SIGTERM)
+      os.kill(pid, signal.SIGKILL)
+
+
+def kill_procs():
+  kill_proc_on_port(1025)  # delay.js
+  kill_proc_on_port(5000)  # delay.js
+  kill_proc_on_port(5001)  # ocaml worker proc
+  kill_proc_on_port(5002)  # ocaml worker proc
+  kill_proc_on_port(5003)  # ocaml worker proc
+  kill_proc_on_port(5004)  # ocaml worker proc
 
 
 def p(str):
@@ -120,7 +130,7 @@ def stop_handle(name, dir, handle):
 def measure_fizzbuzz(dir, url):
   p("  Measuring fizzbuzz")
   run(dir, "measure_fizzbuzz", [
-      "wrk", "--connections", "100", "--threads", "2", "--duration", "2s",
+      "wrk", "--connections", "100", "--threads", "20", "--duration", "5s",
       "--timeout", "20s", url + "/fizzbuzz"
   ])
 
@@ -287,8 +297,7 @@ def benchmark(dir):
     return
   p("Benchmarking " + dir)
   # Running process prevents some builds
-  port = int(readfile(f"{dir}/port"))
-  kill_proc_on_port(port)
+  kill_procs()
 
   install(dir)
   build(dir)
@@ -308,7 +317,7 @@ def benchmark(dir):
       measure_fizzboom(dir, host)
       report_fizzboom(dir)
   finally:
-    kill_proc_on_port(port)
+    kill_procs()
     stop_handle("server", dir, server_handle)
     stop_handle("delay_server", dir, delay_server_handle)
 
