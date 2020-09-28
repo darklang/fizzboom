@@ -37,12 +37,11 @@ let configureLogging (builder : ILoggingBuilder) =
 [<EntryPoint>]
 let main args =
     let contentRoot = Directory.GetCurrentDirectory()
-    let port = int (System.IO.File.ReadAllText("port"))
     Host.CreateDefaultBuilder(args)
         .ConfigureWebHostDefaults(
             fun webHostBuilder ->
                 webHostBuilder
-                    .UseUrls(sprintf "http://127.0.0.1:%i" port)
+                    .UseUrls("http://127.0.0.1:5000")
                     .UseContentRoot(contentRoot)
                     .Configure(Action<IApplicationBuilder> configureApp)
                     .ConfigureServices(configureServices)

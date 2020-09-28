@@ -79,10 +79,6 @@ let () =
     ]
   in
   Base.List.iter options ~f:(fun (str, opt) -> print_endline ("option " ^ str ^ ": " ^ (string_of_bool(Lwt_sys.have opt)) ));
-  let port =
-    "port"
-    |> Stdio.In_channel.read_all
-    |> Base.String.strip
-  in
+  let port = Sys.argv.(1) in
   print_endline ("Using port: " ^ port);
   main (Base.Int.of_string port)

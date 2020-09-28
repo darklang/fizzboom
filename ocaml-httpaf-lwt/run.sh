@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-esy dune exec server
+esy dune exec server 5000

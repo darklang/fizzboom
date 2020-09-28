@@ -8,9 +8,6 @@
     <Compile Include="EditorServer.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\..\port" Link="port" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\LibExecution\LibExecution.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

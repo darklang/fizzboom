@@ -53,8 +53,7 @@ Each benchmark candidate is in its own directory, which has some known files:
 
 - `./install.sh` - installs dependencies
 - `./build.sh` - builds the server. This should use release configuration
-- `./run.sh` - runs the server
-- `PORT` - the port to use to connect to the server
+- `./run.sh` - runs the server on port 5000
 - `BROKEN` - if this file exists, skip the implementation in this directory
 
 Benchmarks implement a HTTP server connected to an interpreter which each

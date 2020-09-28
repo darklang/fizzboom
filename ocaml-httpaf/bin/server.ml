@@ -61,8 +61,4 @@ let main port =
 
 
 let () =
-  "port"
-  |> Stdio.In_channel.read_all
-  |> Base.String.strip
-  |> Base.Int.of_string
-  |> main
+  main 5000

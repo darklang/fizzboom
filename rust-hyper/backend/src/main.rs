@@ -102,7 +102,7 @@ async fn run_program<'a>(program: &'a Expr<'a>)
   let tlid = runtime::TLID::TLID(7);
   let state =
     eval::ExecState { caller: runtime::Caller::Toplevel(tlid), };
-  
+
   eval::run_json(&state, program)
 }
 
@@ -128,11 +128,7 @@ async fn handle(req: Request<Body>)
 
 #[tokio::main(threaded_scheduler)]
 async fn main() {
-  let port = std::fs::read_to_string("port").unwrap()
-                                            .trim()
-                                            .parse::<u16>()
-                                            .unwrap();
-  let addr = SocketAddr::from(([127, 0, 0, 1], port));
+  let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
   // A `Service` is needed for every connection, so this
   // creates one from our `hello_world` function.
   let make_svc = make_service_fn(|_conn| async {

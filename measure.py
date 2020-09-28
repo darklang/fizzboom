@@ -80,8 +80,7 @@ def install(dir):
 
 
 def start_server(dir):
-  port = int(readfile(f"{dir}/port"))
-  kill_proc_on_port(port)
+  kill_proc_on_port(5000)
   p("  Starting server")
   filename = logfile(dir, "server")
   file = open(filename, "w")
@@ -275,11 +274,7 @@ def test_fizzboom(dir, url):
 
 
 def get_host(dir):
-  with open(dir + "/port", "r") as myfile:
-    lines = myfile.readlines()
-    port = "".join(lines)
-    port = port.strip()
-  return "http://localhost:" + port
+  return "http://localhost:5000"
 
 
 def is_broken(dir):

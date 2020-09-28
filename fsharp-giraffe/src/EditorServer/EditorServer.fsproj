@@ -13,8 +13,5 @@
   <ItemGroup>
     <ProjectReference Include="..\LibExecution\LibExecution.fsproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="..\..\port" Link="port" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

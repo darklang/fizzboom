@@ -19,11 +19,10 @@ let app =
 [<EntryPoint>]
 let main argv =
     let cts = new CancellationTokenSource()
-    let port = System.IO.File.ReadAllText("port")
 
     let conf =
         { defaultConfig with
-              bindings = [HttpBinding.createSimple HTTP "127.0.0.1" (int port)]
+              bindings = [HttpBinding.createSimple HTTP "127.0.0.1" 5000]
               cancellationToken = cts.Token }
 
     let listening, server = startWebServerAsync conf app
