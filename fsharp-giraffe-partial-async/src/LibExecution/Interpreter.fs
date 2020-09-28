@@ -99,7 +99,7 @@ and DType =
     | TVariable of string
     | TFn of List<DType> * DType
 
-let err (e: RuntimeError) = DSpecial(DError(e))
+let err (e: RuntimeError): Dval = (DSpecial(DError(e)))
 
 module Symtable =
     type T = Symtable
@@ -109,25 +109,63 @@ module Symtable =
         st.TryFind(name)
         |> Option.defaultValue (err (UndefinedVariable name))
 
+type TaskOr =
+    | Promise of Task<Dval>
+    | Plain of Dval
+
+    member t.toTask(): Task<Dval> =
+        match t with
+        | Plain v -> task { return v }
+        | Promise v -> v
+
+
+    member t.map(f: Dval -> Dval): TaskOr =
+        match t with
+        | Plain dv -> Plain(f dv)
+        | Promise t ->
+            Promise
+                (task {
+                    let! dv = t
+                    return (f dv)
+                 })
+
+    member t.bind(f: Dval -> TaskOr): TaskOr =
+        match t with
+        | Plain dv -> f dv
+        | Promise t ->
+            Promise
+                (task {
+                    let! dv = t
+
+                    match f dv with
+                    | Plain dv -> return dv
+                    | Promise dv -> return! dv
+                 })
+
+    member t1.bind2 (t2: TaskOr) (f: Dval -> Dval -> TaskOr): TaskOr =
+        match t1, t2 with
+        | Plain t1, Plain t2 -> f t1 t2
+        | _ ->
+            Promise
+                (task {
+                    let! t1 = t1.toTask ()
+                    let! t2 = t2.toTask ()
+
+                    match f t1 t2 with
+                    | Plain result -> return result
+                    | Promise result -> return! result
+                 })
+
+let perr (e: RuntimeError): TaskOr = Plain(DSpecial(DError(e)))
 
 module Environment =
     type RetVal = { tipe: DType; doc: string }
 
-    type BuiltInFn =
-        | Sync of SyncFn
-        | Async of AsyncFn
-
-    and SyncFn =
+    and BuiltInFn =
         { name: FnDesc.T
           parameters: List<Param>
           returnVal: RetVal
-          fn: (T * List<Dval>) -> Result<Dval, unit> }
-
-    and AsyncFn =
-        { name: FnDesc.T
-          parameters: List<Param>
-          returnVal: RetVal
-          fn: (T * List<Dval>) -> Task<Result<Dval, unit>> }
+          fn: (T * List<Dval>) -> Result<TaskOr, unit> }
 
     and T = { functions: Map<FnDesc.T, BuiltInFn> }
 
@@ -197,7 +235,8 @@ let fizzboom: Expr =
                                     EString "fizz",
                                     sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
 
-let map_s (list: List<'a>) (f: ('a -> Task<'b>)): Task<List<'b>> =
+
+let map_s (list: List<Dval>) (f: (Dval -> Task<Dval>)): Task<List<Dval>> =
     task {
         let! result =
             match list with
@@ -210,11 +249,11 @@ let map_s (list: List<'a>) (f: ('a -> Task<'b>)): Task<List<'b>> =
                             return ([], result)
                         }
 
-                    let! ((accum, lastcomp): (List<'b> * 'b)) =
-                        List.fold (fun (prevcomp: Task<List<'b> * 'b>) (arg: 'a) ->
+                    let! ((accum, lastcomp): (List<Dval> * Dval)) =
+                        List.fold (fun (prevcomp: Task<List<Dval> * Dval>) (arg: Dval) ->
                             task {
                                 // Ensure the previous computation is done first
-                                let! ((accum, prev): (List<'b> * 'b)) = prevcomp
+                                let! ((accum, prev): (List<Dval> * Dval)) = prevcomp
                                 let accum = prev :: accum
 
                                 let! result = f arg
@@ -229,162 +268,151 @@ let map_s (list: List<'a>) (f: ('a -> Task<'b>)): Task<List<'b>> =
     }
 
 
-let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Task<Dval> =
+let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): TaskOr =
     let tryFindFn desc = env.functions.TryFind(desc)
 
     match e with
-    | EInt i -> task { return DInt i }
-    | EString s -> task { return DString s }
+    | EInt i -> Plain(DInt i)
+    | EString s -> Plain(DString s)
     | ELet (lhs, rhs, body) ->
-        task {
-            let! rhs = evalAsync env st rhs
+        let rhs = evalAsync env st rhs
+        rhs.bind (fun rhs ->
             let st = st.Add(lhs, rhs)
-            return! (evalAsync env st body)
-        }
-    | EFnCall (desc, args) ->
-        (match tryFindFn desc with
-         | Some fn ->
-             task {
-                 let! args = map_s args (evalAsync env st)
-                 return! call_fn_async env fn (Seq.toList args)
-             }
-         | None -> task { return (err (NotAFunction desc)) })
+            evalAsync env st body)
+
+    | EFnCall (desc, args) -> Plain(DInt(bigint (0)))
+    (* (match tryFindFn desc with *)
+    (*  | Some fn -> *)
+    (*      Promise *)
+    (*          (task { *)
+    (*              let! args = map_s args (evalAsync env st) *)
+    (*              return! call_fn_async env fn (Seq.toList args) *)
+    (*           }) *)
+    (*  | None -> task { return (err (NotAFunction desc)) }) *)
     | EBinOp (arg1, desc, arg2) ->
         (match tryFindFn desc with
          | Some fn ->
-             task {
-                 let! arg1 = evalAsync env st arg1
-                 let! arg2 = evalAsync env st arg2
-                 return! call_fn_async env fn [ arg1; arg2 ]
-             }
-         | None -> task { return (err (NotAFunction desc)) })
-    | ELambda (vars, expr) -> task { return DLambda(st, vars, expr) }
-    | EVariable (name) -> task { return Symtable.get st name }
+             let t1 = (evalAsync env st arg1)
+             let t2 = (evalAsync env st arg2)
+
+             t1.bind2 t2 (fun arg1 arg2 -> call_fn_async env fn [ arg1; arg2 ])
+         | None -> (perr (NotAFunction desc)))
+    | ELambda (vars, expr) -> Plain(DLambda(st, vars, expr))
+    | EVariable (name) -> Plain(Symtable.get st name)
     | EIf (cond, thenbody, elsebody) ->
-        task {
-            let! cond = evalAsync env st cond
+        let cond = (evalAsync env st cond)
+        cond.bind (function
+            | DBool (true) -> evalAsync env st thenbody
+            | DBool (false) -> evalAsync env st elsebody
+            | cond -> perr (CondWithNonBool cond))
 
-            match cond with
-            | DBool (true) -> return! evalAsync env st thenbody
-            | DBool (false) -> return! evalAsync env st elsebody
-            | _ -> return err (CondWithNonBool cond)
-        }
+and call_fn_async (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<Dval>): TaskOr =
+    match List.tryFind (fun (dv: Dval) -> dv.isSpecial) args with
+    | Some special -> Plain(special)
+    | None ->
+        match fn.fn (env, args) with
+        | Ok result -> result
+        | Error () -> perr (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
 
-and call_fn_async (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<Dval>): Task<Dval> =
-    task {
-        match List.tryFind (fun (dv: Dval) -> dv.isSpecial) args with
-        | Some special -> return special
-        | None ->
-            match fn with
-            | Environment.BuiltInFn.Async fn ->
-                match! fn.fn (env, args) with
-                | Ok result -> return result
-                | Error () -> return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
-            | Environment.BuiltInFn.Sync fn ->
-                match fn.fn (env, args) with
-                | Ok result -> return result
-                | Error () -> return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
-    }
 
 module StdLib =
     let functions (): Map<FnDesc.T, Environment.BuiltInFn> =
         let fns: List<Environment.BuiltInFn> =
-            [ Environment.Sync
-                { name = (FnDesc.stdFnDesc "Int" "range" 0)
-                  parameters =
-                      [ param "list" (TList(TVariable("a"))) "The list to be operated on"
-                        param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
-                  returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
-                  fn =
-                      (function
-                      | _, [ DInt lower; DInt upper ] -> List.map DInt [ lower .. upper ] |> DList |> Ok
-                      | _ -> Error()) }
-              Environment.Async
-                  { name = (FnDesc.stdFnDesc "List" "map" 0)
-                    parameters =
-                        [ param "list" (TList(TVariable("a"))) "The list to be operated on"
-                          param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
-                    returnVal =
-                        (retVal
-                            (TList(TVariable("b")))
-                             "A list created by the elements of `list` with `fn` called on each of them in order")
-                    fn =
-                        (function
-                        | env, [ DList l; DLambda (st, [ var ], body) ] ->
-                            task {
-                                let! result =
-                                    map_s l (fun dv ->
-                                        let st = st.Add(var, dv)
-                                        evalAsync env st body)
+            [ { name = (FnDesc.stdFnDesc "Int" "range" 0)
+                parameters =
+                    [ param "list" (TList(TVariable("a"))) "The list to be operated on"
+                      param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
+                returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
+                fn =
+                    (function
+                    | _, [ DInt lower; DInt upper ] ->
+                        List.map DInt [ lower .. upper ]
+                        |> DList
+                        |> Plain
+                        |> Ok
+                    | _ -> Error()) }
+              { name = (FnDesc.stdFnDesc "List" "map" 0)
+                parameters =
+                    [ param "list" (TList(TVariable("a"))) "The list to be operated on"
+                      param "fn" (TFn([ TVariable("a") ], TVariable("b"))) "Function to be called on each member" ]
+                returnVal =
+                    (retVal
+                        (TList(TVariable("b")))
+                         "A list created by the elements of `list` with `fn` called on each of them in order")
+                fn =
+                    (function
+                    | env, [ DList l; DLambda (st, [ var ], body) ] ->
+                        Ok
+                            (Promise
+                                (task {
+                                    let! result = task { return [] }
 
-                                return (result |> Dval.toDList |> Ok)
-                            }
+                                    (* map_s l (fun dv -> *)
+                                    (*     let st = st.Add(var, dv) *)
+                                    (*     evalAsync env st body) *)
 
-                        | _ -> task { return Error() }) }
-              Environment.Sync
-                  { name = (FnDesc.stdFnDesc "Int" "%" 0)
-                    parameters =
-                        [ param "a" TInt "Numerator"
-                          param "b" TInt "Denominator" ]
-                    returnVal = (retVal TInt "Returns the modulus of a / b")
-                    fn =
-                        (function
-                        | env, [ DInt a; DInt b ] ->
-                            try
-                                Ok(DInt(a % b))
-                            with _ -> Ok(DInt(bigint 0))
-                        | _ -> Error()) }
-              Environment.Sync
-                  { name = (FnDesc.stdFnDesc "Int" "==" 0)
-                    parameters =
-                        [ param "a" TInt "a"
-                          param "b" TInt "b" ]
-                    returnVal =
-                        (retVal
-                            TBool
-                             "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
-                    fn =
-                        (function
-                        | env, [ DInt a; DInt b ] -> Ok(DBool(a = b))
-                        | _ -> Error()) }
-              Environment.Sync
-                  { name = (FnDesc.stdFnDesc "Int" "toString" 0)
-                    parameters = [ param "a" TInt "value" ]
-                    returnVal = (retVal TString "Stringified version of a")
-                    fn =
-                        (function
-                        | env, [ DInt a ] -> Ok(DString(a.ToString()))
-                        | _ -> Error()) }
-              Environment.Async
-                  { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
-                    parameters = [ param "url" TString "URL to fetch" ]
-                    returnVal = (retVal TString "Body of response")
-                    fn =
-                        (function
-                        | env, [ DString url ] ->
-                            try
-                                task {
-                                    let! response = Http.AsyncRequestString(url)
-                                    let info = JsonValue.Parse(response)
-                                    return Ok(DString(info?data.AsString()))
-                                }
-                            with e ->
-                                printfn "error in HttpClient::get: %s" (e.ToString())
-                                task { return Error() }
-                        | _ -> task { return Error() }) } ]
+                                    return (result |> Dval.toDList)
+                                 }))
 
-        fns
-        |> List.map (fun fn ->
-            match fn with
-            | Environment.Async f -> (f.name), fn
-            | Environment.Sync f -> (f.name), fn)
-        |> Map
+                    | _ -> Error()) }
+              { name = (FnDesc.stdFnDesc "Int" "%" 0)
+                parameters =
+                    [ param "a" TInt "Numerator"
+                      param "b" TInt "Denominator" ]
+                returnVal = (retVal TInt "Returns the modulus of a / b")
+                fn =
+                    (function
+                    | env, [ DInt a; DInt b ] ->
+                        try
+                            Ok(Plain(DInt(a % b)))
+                        with _ -> Ok(Plain(DInt(bigint 0)))
+                    | _ -> Error()) }
+              { name = (FnDesc.stdFnDesc "Int" "==" 0)
+                parameters =
+                    [ param "a" TInt "a"
+                      param "b" TInt "b" ]
+                returnVal =
+                    (retVal
+                        TBool
+                         "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
+                fn =
+                    (function
+                    | env, [ DInt a; DInt b ] -> Ok(Plain(DBool(a = b)))
+                    | _ -> Error()) }
+              { name = (FnDesc.stdFnDesc "Int" "toString" 0)
+                parameters = [ param "a" TInt "value" ]
+                returnVal = (retVal TString "Stringified version of a")
+                fn =
+                    (function
+                    | env, [ DInt a ] -> Ok(Plain(DString(a.ToString())))
+                    | _ -> Error()) }
+              { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
+                parameters = [ param "url" TString "URL to fetch" ]
+                returnVal = (retVal TString "Body of response")
+                fn =
+                    (function
+                    | env, [ DString url ] ->
+                        try
+                            Ok
+                                (Promise
+                                    (task {
+                                        let! response = Http.AsyncRequestString(url)
+                                        let info = JsonValue.Parse(response)
+                                        return (DString(info?data.AsString()))
+                                     }))
+                        with e ->
+                            printfn "error in HttpClient::get: %s" (e.ToString())
+                            Error()
+                    | _ -> Error()) } ]
+
+        fns |> List.map (fun fn -> (fn.name), fn) |> Map
 
 
 let env =
     Environment.envWith (StdLib.functions ())
 
-let runAsync (e: Expr): Task<Dval> = evalAsync env Symtable.empty e
+let runAsync (e: Expr): Task<Dval> =
+    (evalAsync env Symtable.empty e).toTask()
 
 let runJSONAsync (e: Expr): Task<string> =
     task {
