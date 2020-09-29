@@ -103,7 +103,13 @@ async fn run_program<'a>(program: &'a Expr<'a>)
   let state =
     eval::ExecState { caller: runtime::Caller::Toplevel(tlid), };
 
-  eval::run_json(&state, program)
+  // This isn't really ok, but tokio doesn't support scoped tasks and requires 'static lifetime.
+  // This line won't be ok if the future is canceled before the end of this function.
+  let program: &'static Expr<'static> = unsafe { std::mem::transmute(program) };
+
+  tokio::task::spawn_blocking(move || eval::run_json(&state, program))
+    .await
+    .unwrap()
 }
 
 async fn handle(req: Request<Body>)
