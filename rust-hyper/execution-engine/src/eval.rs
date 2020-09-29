@@ -133,7 +133,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
         env: &'b Environment)
         -> Dval<'a> {
   use crate::{dval::*, expr::Expr::*};
-  match &*expr {
+  match expr {
     IntLiteral { id: _, val } => dint(val.clone()),
     StringLiteral { id: _, val } => dstr(Cow::Borrowed(val)),
     Blank { id } => {
@@ -153,7 +153,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
     Lambda { id: _,
              params,
              body, } => {
-      DLambda(symtable, params.clone(), body)
+      DLambda(symtable, params, body)
     }
     If { id,
          cond,
