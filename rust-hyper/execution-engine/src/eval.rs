@@ -9,7 +9,6 @@ use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
 use std::borrow::Cow;
-use chttp::ResponseExt;
 
 pub struct ExecState {
   pub caller: Caller,
@@ -75,19 +74,11 @@ fn stdlib() -> StdlibDef<'static> {
 
   #[stdlibfn]
   fn hTTPClient__get__0(url: Str) {
-    // Can't use async within another async block
-    // let result = async {
-    //   let client = hyper::Client::new();
-    //   let uri = "http://localhost:1025/delay/1".parse().unwrap();
-    //   let resp = client.get(uri).await.unwrap();
-    //   let body_bytes = hyper::body::to_bytes(resp.into_body()).await.unwrap();
-    //   let str = String::from_utf9(body_bytes.to_vec()).unwrap();
-    //
-    //   println!("Response: {}", str);
-    //   dstr(&str)
-    // };
-    // tokio::runtime::Runtime::new().unwrap().block_on(result)
-    let mut response = chttp::get("http://localhost:1025/delay/1").unwrap();
+    lazy_static::lazy_static! {
+      static ref CLIENT: reqwest::blocking::Client = reqwest::blocking::Client::new();
+    }
+
+    let response = CLIENT.get("http://localhost:1025/delay/1").send().unwrap();
     let text = response.text().unwrap();
     let json : serde_json::Value = serde_json::from_str(&text).unwrap();
     let result = json["data"].as_str().unwrap().to_string();
