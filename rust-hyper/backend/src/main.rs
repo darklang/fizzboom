@@ -12,12 +12,12 @@ use execution_engine::{self, eval, expr::*, runtime};
 
 fn fizzboom<'a>() -> Expr<'a> {
   elet("range",
-       esfn("Int", "range", 0, vec![eint(1), eint(100),].into()),
+       esfn("Int", "range", 0, [eint(1), eint(100),].into()),
        esfn("List",
             "map",
             0,
-            vec![(evar("range")),
-                  elambda(vec!["i"].into(),
+            [(evar("range")),
+                  elambda((&["i"][..]).into(),
                           eif(ebinop(ebinop(evar("i"),
                                             "Int",
                                             "%",
@@ -27,7 +27,7 @@ fn fizzboom<'a>() -> Expr<'a> {
                                      "==",
                                      0,
                                      eint(0)),
-                              esfn("HTTPClient", "get", 0, vec![estr("http://localhost:1025/delay/1")].into()),
+                              esfn("HTTPClient", "get", 0, [estr("http://localhost:1025/delay/1")].into()),
                               eif(ebinop(ebinop(evar("i"),
                                                 "Int",
                                                 "%",
@@ -51,16 +51,16 @@ fn fizzboom<'a>() -> Expr<'a> {
                                       esfn("Int",
                                            "toString",
                                            0,
-                                           vec![evar("i")].into())))))].into()))
+                                           [evar("i")].into())))))].into()))
 }
 fn fizzbuzz<'a>() -> Expr<'a> {
   elet("range",
-       esfn("Int", "range", 0, vec![eint(1), eint(100),].into()),
+       esfn("Int", "range", 0, [eint(1), eint(100),].into()),
        esfn("List",
             "map",
             0,
-            vec![(evar("range")),
-                  elambda(vec!["i"].into(),
+            [(evar("range")),
+                  elambda((&["i"][..]).into(),
                           eif(ebinop(ebinop(evar("i"),
                                             "Int",
                                             "%",
@@ -94,7 +94,7 @@ fn fizzbuzz<'a>() -> Expr<'a> {
                                       esfn("Int",
                                            "toString",
                                            0,
-                                           vec![evar("i")].into())))))].into()))
+                                           [evar("i")].into())))))].into()))
 }
 
 async fn run_program<'a>(program: &'a Expr<'a>)

@@ -100,7 +100,7 @@ fn get_argument_patterns(ifn: ItemFn) -> Punc<Pat, token::Comma> {
   Punc::from_iter(get_arguments(ifn).iter()
                                     .map(|(name, ty)| {
                                       argument_pattern(vec!["dval",
-                                                            "Dval_"],
+                                                            "Dval"],
                                                        name,
                                                        ty)
                                     })
@@ -224,15 +224,15 @@ pub fn stdlibfn(_attr: TokenStream,
          StdlibFunction {
            f:
              {
-               Box::new(
-                 move |state : &ExecState, args : Vec<Dval<'_>>| { {
-                   match args.iter().map(|v| &(**v)).collect::<Vec<_>>().as_slice() {
+                 Box::new(move |state : &ExecState, args: &[Dval<'_>]| { {
+                   match &args {
                      [ #argument_patterns ] => #body,
                      _ => {
-                       for arg in args.clone() {
-                         if (arg).is_special() { return arg.clone ()}
+                       for arg in args {
+                         if arg.is_special() { return arg.clone(); }
                        }
-                       std::rc::Rc::new(Dval_::DSpecial((Special::Error(state.caller, IncorrectArguments(fn_name, args)))))
+                       let args2: Vec<Dval<'_>> = args.into_iter().cloned().collect();
+                       Dval::DSpecial(Box::new(Special::Error(state.caller, IncorrectArguments(fn_name, args2))))
                      }}}})},
                     })}
 

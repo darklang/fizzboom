@@ -3,32 +3,31 @@ use im_rc as im;
 use std::{fmt};
 use std::borrow::Cow;
 use serde::ser::{Serialize, SerializeSeq};
-use std::rc::Rc;
 
 // use crate::{errors, expr};
 use crate::{errors, runtime};
 use ramp;
 
 // These are types that aren't real values, but are used to hold other information
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Special<'a> {
   Error(runtime::Caller, errors::Error<'a>),
   Incomplete(runtime::Caller),
 }
 
-#[derive(Debug)]
-pub enum Dval_<'a> {
+#[derive(Debug, Clone)]
+pub enum Dval<'a> {
   DBool(bool),
   DInt(ramp::Int),
   DStr(Cow<'a, str>),
   DList(im::Vector<Dval<'a>>),
   DLambda(runtime::SymTable<'a>, Cow<'a, [&'a str]>, &'a expr::Expr<'a>),
-  DSpecial(Special<'a>),
+  DSpecial(Box<Special<'a>>),
 }
 
-impl<'a> Serialize for Dval_<'a> {
+impl<'a> Serialize for Dval<'a> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-      use Dval_::*;
+      use Dval::*;
       match self {
         DBool(v) => serializer.serialize_bool(*v),
         DInt(i) => {
@@ -44,7 +43,7 @@ impl<'a> Serialize for Dval_<'a> {
           let mut seq = serializer.serialize_seq(Some(lst.len()))?;
 
           for elem in lst {
-            seq.serialize_element(&**elem)?;
+            seq.serialize_element(elem)?;
           }
 
           seq.end()
@@ -54,23 +53,23 @@ impl<'a> Serialize for Dval_<'a> {
     }
 }
 
-impl<'a> Dval_<'a> {
+impl<'a> Dval<'a> {
   pub fn is_special(&self) -> bool {
-    matches!(self, Dval_::DSpecial(_))
+    matches!(self, Dval::DSpecial(_))
   }
 }
 
-pub type Dval<'a> = Rc<Dval_<'a>>;
+// pub type Dval<'a> = Rc<Dval_<'a>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DType<'a> {
-  TList(Rc<DType<'a>>),
+  TList(&'a [DType<'a>]),
   TLambda,
   TBool,
   NamedType(&'a str),
 }
 
-impl<'a> fmt::Display for Dval_<'a> {
+impl<'a> fmt::Display for Dval<'a> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.write_fmt(format_args!("{:?}", self))?;
     Ok(())
@@ -87,34 +86,34 @@ impl<'a> fmt::Display for DType<'a> {
 pub fn derror<'a>(caller: &runtime::Caller,
               error: errors::Error<'a>)
               -> Dval<'a> {
-  Rc::new(Dval_::DSpecial(Special::Error(*caller, error)))
+  Dval::DSpecial(Box::new(Special::Error(*caller, error)))
 }
 
 pub fn dcode_error<'a>(caller: &runtime::Caller,
                    id: runtime::ID,
                    error: errors::Error<'a>)
                    -> Dval<'a> {
-  Rc::new(Dval_::DSpecial(Special::Error(
+  Dval::DSpecial(Box::new(Special::Error(
         runtime::Caller::Code(caller.to_tlid(), id),
         error,
     )))
 }
 
 pub fn dincomplete<'a>(caller: &runtime::Caller) -> Dval<'a> {
-  Rc::new(Dval_::DSpecial(Special::Incomplete(*caller)))
+  Dval::DSpecial(Box::new(Special::Incomplete(*caller)))
 }
 
 pub fn dbool<'a>(val: bool) -> Dval<'a> {
-  Rc::new(Dval_::DBool(val))
+  Dval::DBool(val)
 }
 pub fn dint<'a>(i: ramp::Int) -> Dval<'a> {
-  Rc::new(Dval_::DInt(i))
+  Dval::DInt(i)
 }
 
 pub fn dstr<'a>(val: Cow<'a, str>) -> Dval<'a> {
-  Rc::new(Dval_::DStr(val))
+  Dval::DStr(val)
 }
 
 pub fn dlist<'a>(l: im::Vector<Dval<'a>>) -> Dval<'a> {
-  Rc::new(Dval_::DList(l))
+  Dval::DList(l)
 }

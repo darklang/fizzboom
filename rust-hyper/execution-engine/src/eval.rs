@@ -1,6 +1,6 @@
 use crate::{
   dval,
-  dval::{Dval_::*, *},
+  dval::{Dval::*, *},
   errors::Error::*,
   expr::Expr,
   runtime::*,
@@ -8,7 +8,7 @@ use crate::{
 use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
-use std::{borrow::Cow, rc::Rc};
+use std::borrow::Cow;
 use chttp::ResponseExt;
 
 pub struct ExecState {
@@ -24,8 +24,8 @@ pub fn run<'a, 'b>(state: &'b ExecState, body: &'a  Expr<'a>) -> Dval<'a> {
 }
 
 pub fn run_string<'a>(state: &'a ExecState, body: &'a Expr<'a>) -> String {
-  match &*run(state, body) {
-    dval::Dval_::DSpecial(dval::Special::Error(_, err)) => {
+  match run(state, body) {
+    dval::Dval::DSpecial(box dval::Special::Error(_, err)) => {
       format!("Error: {}", err)
     }
     result => format!("{:?}", result),
@@ -33,7 +33,7 @@ pub fn run_string<'a>(state: &'a ExecState, body: &'a Expr<'a>) -> String {
 }
 
 pub fn run_json<'a, 'b>(state: &'b ExecState, body: &'a Expr<'a>) -> String {
-  serde_json::to_string(&*run(state, body)).unwrap()
+  serde_json::to_string(&run(state, body)).unwrap()
 }
 
 fn stdlib() -> StdlibDef<'static> {
@@ -162,16 +162,16 @@ fn eval<'a, 'b>(state: &'b ExecState,
     Lambda { id: _,
              params,
              body, } => {
-      Rc::new(DLambda(symtable, params.clone(), body))
+      DLambda(symtable, params.clone(), body)
     }
     If { id,
          cond,
          then_body,
          else_body, } => {
       let result = eval(state, cond, symtable.clone(), env);
-      match *result {
+      match result {
         DBool(true) => {
-          eval(state, then_body, symtable.clone(), env)
+          eval(state, then_body, symtable, env)
         }
         DBool(false) => eval(state, else_body, symtable, env),
         _ => dcode_error(&state.caller,
@@ -185,16 +185,16 @@ fn eval<'a, 'b>(state: &'b ExecState,
       match fn_def {
         Option::Some(v) => {
           let lhs =
-            eval(state, lhs, symtable.clone(), env.clone());
+            eval(state, lhs, symtable.clone(), env);
           let rhs =
-            eval(state, rhs, symtable.clone(), env.clone());
+            eval(state, rhs, symtable, env);
           let state = ExecState { caller:
                                     Caller::Code(state.caller
                                                       .to_tlid(),
                                                  *id),
                                   ..*state };
 
-          (v.f)(&state, vec![lhs, rhs])
+          (v.f)(&state, &[lhs, rhs])
         }
         Option::None => {
           derror(&state.caller, MissingFunction(op.clone()))
@@ -219,7 +219,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
                                                  *id),
                                   ..*state };
 
-          (v.f)(&state, args)
+          (v.f)(&state, &args)
         }
         Option::None => {
           derror(&state.caller, MissingFunction(name.clone()))
