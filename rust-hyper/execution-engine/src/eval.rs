@@ -69,7 +69,11 @@ fn stdlib() -> StdlibDef<'static> {
 
   #[stdlibfn]
   fn int__mod__0(a: Int, b: Int) {
-    dint(a % b)
+    if b.eq(&0) {
+      derror(&state.caller, crate::errors::Error::IncorrectArguments(fn_name, vec![]))
+    } else {
+      dint(a % b)
+    }
   }
 
   #[stdlibfn]
