@@ -1,6 +1,6 @@
 use crate::{
   dval,
-  dval::{Dval_::*, *},
+  dval::{Dval::*, *},
   errors::Error::*,
   expr::Expr,
   runtime::*,
@@ -8,8 +8,7 @@ use crate::{
 use im_rc as im;
 use itertools::Itertools;
 use macros::stdlibfn;
-use std::{borrow::Cow, rc::Rc};
-use chttp::ResponseExt;
+use std::borrow::Cow;
 
 pub struct ExecState {
   pub caller: Caller,
@@ -24,8 +23,8 @@ pub fn run<'a, 'b>(state: &'b ExecState, body: &'a  Expr<'a>) -> Dval<'a> {
 }
 
 pub fn run_string<'a>(state: &'a ExecState, body: &'a Expr<'a>) -> String {
-  match &*run(state, body) {
-    dval::Dval_::DSpecial(dval::Special::Error(_, err)) => {
+  match run(state, body) {
+    dval::Dval::DSpecial(box dval::Special::Error(_, err)) => {
       format!("Error: {}", err)
     }
     result => format!("{:?}", result),
@@ -33,7 +32,7 @@ pub fn run_string<'a>(state: &'a ExecState, body: &'a Expr<'a>) -> String {
 }
 
 pub fn run_json<'a, 'b>(state: &'b ExecState, body: &'a Expr<'a>) -> String {
-  serde_json::to_string(&*run(state, body)).unwrap()
+  serde_json::to_string(&run(state, body)).unwrap()
 }
 
 fn stdlib() -> StdlibDef<'static> {
@@ -70,24 +69,20 @@ fn stdlib() -> StdlibDef<'static> {
 
   #[stdlibfn]
   fn int__mod__0(a: Int, b: Int) {
-    dint(a % b)
+    if b.eq(&0) {
+      derror(&state.caller, crate::errors::Error::IncorrectArguments(fn_name, vec![]))
+    } else {
+      dint(a % b)
+    }
   }
 
   #[stdlibfn]
   fn hTTPClient__get__0(url: Str) {
-    // Can't use async within another async block
-    // let result = async {
-    //   let client = hyper::Client::new();
-    //   let uri = "http://localhost:1025/delay/1".parse().unwrap();
-    //   let resp = client.get(uri).await.unwrap();
-    //   let body_bytes = hyper::body::to_bytes(resp.into_body()).await.unwrap();
-    //   let str = String::from_utf9(body_bytes.to_vec()).unwrap();
-    //
-    //   println!("Response: {}", str);
-    //   dstr(&str)
-    // };
-    // tokio::runtime::Runtime::new().unwrap().block_on(result)
-    let mut response = chttp::get("http://localhost:1025/delay/1").unwrap();
+    lazy_static::lazy_static! {
+      static ref CLIENT: reqwest::blocking::Client = reqwest::blocking::Client::new();
+    }
+
+    let response = CLIENT.get("http://localhost:1025/delay/1").send().unwrap();
     let text = response.text().unwrap();
     let json : serde_json::Value = serde_json::from_str(&text).unwrap();
     let result = json["data"].as_str().unwrap().to_string();
@@ -142,7 +137,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
         env: &'b Environment)
         -> Dval<'a> {
   use crate::{dval::*, expr::Expr::*};
-  match &*expr {
+  match expr {
     IntLiteral { id: _, val } => dint(val.clone()),
     StringLiteral { id: _, val } => dstr(Cow::Borrowed(val)),
     Blank { id } => {
@@ -162,16 +157,16 @@ fn eval<'a, 'b>(state: &'b ExecState,
     Lambda { id: _,
              params,
              body, } => {
-      Rc::new(DLambda(symtable, params.clone(), body))
+      DLambda(symtable, params, body)
     }
     If { id,
          cond,
          then_body,
          else_body, } => {
       let result = eval(state, cond, symtable.clone(), env);
-      match *result {
+      match result {
         DBool(true) => {
-          eval(state, then_body, symtable.clone(), env)
+          eval(state, then_body, symtable, env)
         }
         DBool(false) => eval(state, else_body, symtable, env),
         _ => dcode_error(&state.caller,
@@ -185,16 +180,16 @@ fn eval<'a, 'b>(state: &'b ExecState,
       match fn_def {
         Option::Some(v) => {
           let lhs =
-            eval(state, lhs, symtable.clone(), env.clone());
+            eval(state, lhs, symtable.clone(), env);
           let rhs =
-            eval(state, rhs, symtable.clone(), env.clone());
+            eval(state, rhs, symtable, env);
           let state = ExecState { caller:
                                     Caller::Code(state.caller
                                                       .to_tlid(),
                                                  *id),
                                   ..*state };
 
-          (v.f)(&state, vec![lhs, rhs])
+          (v.f)(&state, &[lhs, rhs])
         }
         Option::None => {
           derror(&state.caller, MissingFunction(op.clone()))
@@ -219,7 +214,7 @@ fn eval<'a, 'b>(state: &'b ExecState,
                                                  *id),
                                   ..*state };
 
-          (v.f)(&state, args)
+          (v.f)(&state, &args)
         }
         Option::None => {
           derror(&state.caller, MissingFunction(name.clone()))

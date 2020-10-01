@@ -36,7 +36,7 @@ impl Caller {
 }
 
 pub type FuncSig =
-  Box<dyn for<'s, 'a> Fn(&'s crate::eval::ExecState, Vec<Dval<'a>>) -> Dval<'a>>;
+  Box<dyn for<'s, 'a> Fn(&'s crate::eval::ExecState, &[Dval<'a>]) -> Dval<'a>>;
 
 pub type SymTable<'a> = im::HashMap<&'a str, Dval<'a>>;
 

@@ -4,7 +4,7 @@ use crate::{
 };
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Error<'a> {
   MissingFunction(runtime::FunctionDesc_<'a>),
   IncorrectArguments(&'a runtime::FunctionDesc_<'a>, Vec<Dval<'a>>),
