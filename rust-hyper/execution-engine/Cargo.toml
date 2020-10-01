@@ -16,3 +16,11 @@ serde_json = "1.0"
 reqwest = {version = "0.10", features = ["blocking"]}
 serde = "1.0"
 lazy_static = "1.4"
+
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "eval"
+harness = false
